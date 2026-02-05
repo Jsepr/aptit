@@ -1,0 +1,5 @@
+{
+	"name": "Aptit - Smart Recipe Book",
+	"description": "A sophisticated cooking companion that extracts, converts, and organizes recipes from any website. Supports automatic conversion to Swedish metric units.",
+	"requestFramePermissions": []
+}

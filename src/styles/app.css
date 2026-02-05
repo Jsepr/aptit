@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+	--color-cream-50: #fdfbf7;
+	--color-cream-100: #faf6ef;
+	--color-cream-200: #f5ebe0;
+	--color-cream-300: #eadbc8;
+	--color-cream-500: #d5b48c;
+	--color-cream-900: #5d4037;
+
+	--color-accent-orange: #e67e22;
+	--color-accent-soft: #f39c12;
+
+	--font-sans: "Inter", sans-serif;
+	--font-serif: "Merriweather", serif;
+}
