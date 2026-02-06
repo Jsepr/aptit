@@ -301,7 +301,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 					<div className="bg-white p-8 rounded-3xl shadow-2xl border border-cream-200 flex flex-col items-center gap-4">
 						<Loader2 size={48} className="text-accent-orange animate-spin" />
 						<h3 className="text-xl font-serif font-bold text-cream-900">
-							Converting Units
+							{t.convertingUnits}
 						</h3>
 					</div>
 				</div>
@@ -381,7 +381,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 				<button
 					type="button"
 					onClick={() =>
-						window.confirm("Delete recipe?") && onDelete(recipe.id)
+						window.confirm(t.deleteConfirm) && onDelete(recipe.id)
 					}
 					className="text-red-400 p-2 rounded-full hover:bg-red-50 transition-colors"
 				>
@@ -405,7 +405,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 							<span className="bg-accent-orange px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest flex items-center gap-1 shadow-sm">
 								<Scale size={12} />{" "}
 								{showOriginal
-									? "Original"
+									? t.original
 									: globalMeasureSystem === "metric"
 										? t.metric
 										: t.imperial}
@@ -433,10 +433,10 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 							</div>
 							<div>
 								<p className="text-[10px] uppercase text-gray-400 font-bold tracking-widest leading-none mb-1">
-									Time
+									{t.time}
 								</p>
 								<p className="font-semibold">
-									{recipe.prepTime || recipe.cookTime || "N/A"}
+									{recipe.prepTime || recipe.cookTime || t.notAvailable}
 								</p>
 							</div>
 						</div>
@@ -474,12 +474,12 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 								<div className="bg-cream-100 p-2 rounded-lg text-accent-orange">
 									<Sparkles size={20} />
 								</div>
-								<div>
-									<p className="text-[10px] uppercase text-gray-400 font-bold tracking-widest leading-none mb-1">
-										Original Yield
-									</p>
-									<p className="font-semibold">{recipe.servings}</p>
-								</div>
+							<div>
+								<p className="text-[10px] uppercase text-gray-400 font-bold tracking-widest leading-none mb-1">
+									{t.originalYield}
+								</p>
+								<p className="font-semibold">{recipe.servings}</p>
+							</div>
 							</div>
 						)}
 						<a
@@ -565,8 +565,8 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 														className="mt-4 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-accent-orange hover:text-orange-600 transition-colors"
 													>
 														{expandedIngredients.has(idx)
-															? "Hide Ingredients"
-															: `Check Ingredients (${step.ingredients.length})`}
+															? t.hideIngredients
+															: `${t.checkIngredients} (${step.ingredients.length})`}
 														{expandedIngredients.has(idx) ? (
 															<ChevronUp size={14} />
 														) : (

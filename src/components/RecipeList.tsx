@@ -68,7 +68,7 @@ const RecipeList: React.FC<RecipeListProps> = ({
 									<div className="w-full h-full flex flex-col items-center justify-center bg-cream-50 text-cream-200">
 										<Palette size={48} />
 										<span className="text-[10px] uppercase tracking-widest mt-2 font-bold">
-											Anime Food Art
+											{t.animeFoodArt}
 										</span>
 									</div>
 								)}
