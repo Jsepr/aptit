@@ -33,6 +33,7 @@ export interface Recipe {
 	createdAt: number;
 	language: "en" | "sv";
 	measureSystem: MeasureSystem;
+	recipeType?: "food" | "baking";
 	metricData?: RecipeData;
 	imperialData?: RecipeData;
 }
@@ -79,4 +80,6 @@ export interface Translation {
 	close: string;
 	showOriginal: string;
 	showConverted: string;
+	generatingImageFood: string;
+	generatingImageBaking: string;
 }

@@ -4,14 +4,30 @@ import type { Language, MeasureSystem, Recipe } from "../../types";
 
 const parseJson = (text: string) => {
 	try {
+		// Remove markdown code fences
 		const cleaned = text
 			.replace(/```json/g, "")
 			.replace(/```/g, "")
 			.trim();
+
 		if (!cleaned) return null;
-		return JSON.parse(cleaned);
+
+		// Find the first '{' and the last '}' to extract just the JSON object
+		const firstBrace = cleaned.indexOf("{");
+		const lastBrace = cleaned.lastIndexOf("}");
+
+		if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+			console.error("No valid JSON object found in response");
+			return null;
+		}
+
+		// Extract only the JSON object, ignoring any text before or after
+		const jsonText = cleaned.substring(firstBrace, lastBrace + 1);
+
+		return JSON.parse(jsonText);
 	} catch (e) {
 		console.error("JSON Parse Error", e);
+		console.error("Failed to parse text:", text.substring(0, 500));
 		return null;
 	}
 };
@@ -76,8 +92,13 @@ export const Route = createFileRoute("/api/extract-recipe")({
               "prepTime": "string",
               "cookTime": "string",
               "servings": "string",
-              "imageUrl": "string"
+              "imageUrl": "string",
+              "recipeType": "food" | "baking"
             }
+            
+            RECIPE TYPE CLASSIFICATION:
+            - Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
+            - Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
           `;
 
 				const prompt = `Find and extract the full recipe from this URL: ${url}. Ensure all units are accurately converted to ${targetSystem}.`;
@@ -88,7 +109,7 @@ export const Route = createFileRoute("/api/extract-recipe")({
 						contents: prompt,
 						config: {
 							systemInstruction: systemInstruction,
-							tools: [{ googleSearch: {} }],
+							responseMimeType: "application/json",
 						},
 					});
 

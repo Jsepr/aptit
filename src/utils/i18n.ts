@@ -34,6 +34,8 @@ export const translations: Record<Language, Translation> = {
 		close: "Close",
 		showOriginal: "Show Original Text",
 		showConverted: "Show Smart View",
+		generatingImageFood: "Painting a picture of the dish...",
+		generatingImageBaking: "Painting a picture of the baked goods...",
 	},
 	sv: {
 		title: "Aptit",
@@ -68,5 +70,7 @@ export const translations: Record<Language, Translation> = {
 		close: "Stäng",
 		showOriginal: "Visa originaltext",
 		showConverted: "Visa smart vy",
+		generatingImageFood: "Målar en bild av rätten...",
+		generatingImageBaking: "Målar en bild av brödet/kakan...",
 	},
 };

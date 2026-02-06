@@ -56,7 +56,14 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 			});
 
 			if (extractedData) {
-				setStatusText("Painting anime masterpiece...");
+				// Set appropriate status text based on recipe type
+				const recipeType = extractedData.recipeType || "food";
+				setStatusText(
+					recipeType === "baking"
+						? t.generatingImageBaking
+						: t.generatingImageFood,
+				);
+
 				const animeImageUrl = await generateAnimeFoodImage(
 					extractedData.title || "Delicious food",
 				);

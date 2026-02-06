@@ -4,14 +4,30 @@ import type { MeasureSystem, Recipe, RecipeData } from "../../types";
 
 const parseJson = (text: string) => {
 	try {
+		// Remove markdown code fences
 		const cleaned = text
 			.replace(/```json/g, "")
 			.replace(/```/g, "")
 			.trim();
+
 		if (!cleaned) return null;
-		return JSON.parse(cleaned);
+
+		// Find the first '{' and the last '}' to extract just the JSON object
+		const firstBrace = cleaned.indexOf("{");
+		const lastBrace = cleaned.lastIndexOf("}");
+
+		if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+			console.error("No valid JSON object found in response");
+			return null;
+		}
+
+		// Extract only the JSON object, ignoring any text before or after
+		const jsonText = cleaned.substring(firstBrace, lastBrace + 1);
+
+		return JSON.parse(jsonText);
 	} catch (e) {
 		console.error("JSON Parse Error", e);
+		console.error("Failed to parse text:", text.substring(0, 500));
 		return null;
 	}
 };
@@ -24,8 +40,7 @@ export const Route = createFileRoute("/api/convert-recipe-units")({
 					recipe: Recipe;
 					targetSystem: MeasureSystem;
 				};
-				if (!process.env.GEMINI_API_KEY)
-					return Response.json(null);
+				if (!process.env.GEMINI_API_KEY) return Response.json(null);
 
 				const apiKey = process.env.GEMINI_API_KEY;
 				const ai = new GoogleGenAI({ apiKey });
