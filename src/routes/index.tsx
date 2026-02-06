@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChefHat, Globe, Save, Scale } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AddRecipe from "../components/AddRecipe.tsx";
 import RecipeDetail from "../components/RecipeDetail.tsx";
 import RecipeList from "../components/RecipeList.tsx";
@@ -15,73 +15,107 @@ const LOCAL_STORAGE_KEY = "aptit_recipes_v1";
 const LANG_STORAGE_KEY = "aptit_lang_v1";
 const SYSTEM_STORAGE_KEY = "aptit_system_v1";
 
-function HomeComponent() {
-	const [state, setState] = useState<AppState>({
-		recipes: [],
-		view: "list", // default to list
-		selectedRecipeId: null,
-		language: "sv", // default
-		measureSystem: "metric", // default
-	});
-
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		const savedRecipes = localStorage.getItem(LOCAL_STORAGE_KEY);
-		const savedLang = localStorage.getItem(LANG_STORAGE_KEY) as Language | null;
-		const savedSystem = localStorage.getItem(
-			SYSTEM_STORAGE_KEY,
-		) as MeasureSystem | null;
-
-		const parsedRecipes: any[] = savedRecipes ? JSON.parse(savedRecipes) : [];
-
-		const migratedRecipes: Recipe[] = parsedRecipes.map((r) => {
-			const updated = { ...r };
-			if (
-				updated.instructions &&
-				updated.instructions.length > 0 &&
-				typeof updated.instructions[0] === "string"
-			) {
-				updated.instructions = (
-					updated.instructions as unknown as string[]
-				).map((text) => ({
-					text: text,
-					ingredients: [],
-				}));
-			}
-			if (!updated.measureSystem) {
-				updated.measureSystem = "metric";
-			}
-			return updated as Recipe;
-		});
-
-		setState({
-			recipes: migratedRecipes,
+function getInitialState(): AppState {
+	if (typeof window === "undefined") {
+		return {
+			recipes: [],
 			view: "list",
 			selectedRecipeId: null,
-			language: savedLang || "sv",
-			measureSystem: savedSystem || "metric",
-		});
-		setMounted(true);
+			language: "sv",
+			measureSystem: "metric",
+		};
+	}
+
+	const savedRecipes = localStorage.getItem(LOCAL_STORAGE_KEY);
+	const savedLang = localStorage.getItem(LANG_STORAGE_KEY) as Language | null;
+	const savedSystem = localStorage.getItem(
+		SYSTEM_STORAGE_KEY,
+	) as MeasureSystem | null;
+
+	const parsedRecipes: any[] = savedRecipes ? JSON.parse(savedRecipes) : [];
+
+	const migratedRecipes: Recipe[] = parsedRecipes.map((r) => {
+		const updated = { ...r };
+		if (
+			updated.instructions &&
+			updated.instructions.length > 0 &&
+			typeof updated.instructions[0] === "string"
+		) {
+			updated.instructions = (
+				updated.instructions as unknown as string[]
+			).map((text) => ({
+				text: text,
+				ingredients: [],
+			}));
+		}
+		if (!updated.measureSystem) {
+			updated.measureSystem = "metric";
+		}
+		return updated as Recipe;
+	});
+
+	return {
+		recipes: migratedRecipes,
+		view: "list",
+		selectedRecipeId: null,
+		language: savedLang || "sv",
+		measureSystem: savedSystem || "metric",
+	};
+}
+
+const RecipeListSkeleton = () => (
+	<div className="space-y-6">
+		<div className="flex justify-between items-center">
+			<div className="h-8 w-40 bg-cream-200 animate-pulse rounded" />
+			<div className="h-10 w-36 bg-cream-200 animate-pulse rounded-full" />
+		</div>
+		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+			{[1, 2, 3].map((i) => (
+				<div
+					key={i}
+					className="bg-white rounded-2xl shadow-sm border border-cream-200 overflow-hidden"
+				>
+					<div className="h-48 bg-cream-200 animate-pulse" />
+					<div className="p-5 space-y-3">
+						<div className="h-6 w-3/4 bg-cream-200 animate-pulse rounded" />
+						<div className="h-4 w-full bg-cream-200 animate-pulse rounded" />
+						<div className="h-4 w-2/3 bg-cream-200 animate-pulse rounded" />
+						<div className="pt-4 border-t border-cream-100 flex gap-4">
+							<div className="h-4 w-16 bg-cream-200 animate-pulse rounded" />
+							<div className="h-4 w-12 bg-cream-200 animate-pulse rounded" />
+						</div>
+					</div>
+				</div>
+			))}
+		</div>
+	</div>
+);
+
+function HomeComponent() {
+	const [state, setState] = useState<AppState>(getInitialState);
+	const [hydrated, setHydrated] = useState(false);
+
+	useEffect(() => {
+		setHydrated(true);
 	}, []);
 
-	useEffect(() => {
-		if (mounted) {
-			localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state.recipes));
-		}
-	}, [state.recipes, mounted]);
+	const isFirstRender = useRef(true);
 
 	useEffect(() => {
-		if (mounted) {
-			localStorage.setItem(LANG_STORAGE_KEY, state.language);
+		if (isFirstRender.current) {
+			isFirstRender.current = false;
+			return;
 		}
-	}, [state.language, mounted]);
+		localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state.recipes));
+	}, [state.recipes]);
 
 	useEffect(() => {
-		if (mounted) {
-			localStorage.setItem(SYSTEM_STORAGE_KEY, state.measureSystem);
-		}
-	}, [state.measureSystem, mounted]);
+		localStorage.setItem(LANG_STORAGE_KEY, state.language);
+	}, [state.language]);
+
+	useEffect(() => {
+		localStorage.setItem(SYSTEM_STORAGE_KEY, state.measureSystem);
+	}, [state.measureSystem]);
 
 	const handleAddRecipe = (recipe: Recipe) => {
 		setState((prev) => ({
@@ -125,12 +159,6 @@ function HomeComponent() {
 			measureSystem: prev.measureSystem === "metric" ? "imperial" : "metric",
 		}));
 	};
-
-	// Prevent hydration mismatch by rendering a loader or nothing until mounted?
-	// Or just render empty state which matches initial state.
-	// Initial state has recipes: []. If we render that, it's fine.
-	// But if the server renders empty and client immediately renders content, we get a blink.
-	// That's acceptable for now.
 
 	return (
 		<div className="min-h-screen bg-[#FAF6EF] text-[#5D4037] pb-20">
@@ -184,7 +212,8 @@ function HomeComponent() {
 			</header>
 
 			<main className="max-w-6xl mx-auto px-6">
-				{state.view === "list" && (
+				{!hydrated && <RecipeListSkeleton />}
+				{hydrated && state.view === "list" && (
 					<RecipeList
 						recipes={state.recipes}
 						onSelect={(id) =>
