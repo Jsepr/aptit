@@ -380,9 +380,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 				</button>
 				<button
 					type="button"
-					onClick={() =>
-						window.confirm(t.deleteConfirm) && onDelete(recipe.id)
-					}
+					onClick={() => window.confirm(t.deleteConfirm) && onDelete(recipe.id)}
 					className="text-red-400 p-2 rounded-full hover:bg-red-50 transition-colors"
 				>
 					<Trash2 size={20} />
@@ -474,12 +472,12 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 								<div className="bg-cream-100 p-2 rounded-lg text-accent-orange">
 									<Sparkles size={20} />
 								</div>
-							<div>
-								<p className="text-[10px] uppercase text-gray-400 font-bold tracking-widest leading-none mb-1">
-									{t.originalYield}
-								</p>
-								<p className="font-semibold">{recipe.servings}</p>
-							</div>
+								<div>
+									<p className="text-[10px] uppercase text-gray-400 font-bold tracking-widest leading-none mb-1">
+										{t.originalYield}
+									</p>
+									<p className="font-semibold">{recipe.servings}</p>
+								</div>
 							</div>
 						)}
 						<a

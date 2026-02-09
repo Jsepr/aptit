@@ -5,6 +5,9 @@ import { defineConfig } from "vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+	optimizeDeps: {
+		exclude: ["chromium-bidi"],
+	},
 	server: {
 		port: 3000,
 	},

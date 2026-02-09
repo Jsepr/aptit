@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { createFileRoute } from "@tanstack/react-router";
+import { chromium } from "playwright";
+import { z } from "zod";
 import type { Language, MeasureSystem, Recipe } from "../../types";
 
 const parseJson = (text: string) => {
@@ -32,6 +34,25 @@ const parseJson = (text: string) => {
 	}
 };
 
+const instructionSchema = z.object({
+	text: z.string(),
+	ingredients: z.array(z.string()),
+});
+
+const recipeExtractSchema = z.object({
+	title: z.string(),
+	description: z.string(),
+	ingredients: z.array(z.string()),
+	originalIngredients: z.array(z.string()),
+	baseServingsCount: z.number(),
+	instructions: z.array(instructionSchema),
+	prepTime: z.string(),
+	cookTime: z.string(),
+	servings: z.string(),
+	imageUrl: z.string(),
+	recipeType: z.enum(["food", "baking"]),
+});
+
 export const Route = createFileRoute("/api/extract-recipe")({
 	server: {
 		handlers: {
@@ -56,7 +77,7 @@ export const Route = createFileRoute("/api/extract-recipe")({
             - Weight: Use grams (g) or kilograms (kg).
             - Volume: Use deciliters (dl), milliliters (ml), or liters (l).
             - Temperature: Use Celsius (°C).
-            - Spoons: Use tesked (tsp) and matsked (tbsp).
+            - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
           `;
 
 				const imperialInstructions = `
@@ -66,50 +87,59 @@ export const Route = createFileRoute("/api/extract-recipe")({
             - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
           `;
 
-				const systemInstruction = `
-            You are an expert professional chef and baker. 
-            Your goal is to extract recipe details from the provided source.
-            
-            CRITICAL RULES:
-            1. The target measurement system is: ${targetSystem.toUpperCase()}.
-            2. Convert ALL measurements to: ${targetSystem === "metric" ? metricInstructions : imperialInstructions}
-            3. Provide the "originalIngredients" exactly from the source.
-            4. Translate to ${language === "sv" ? "Swedish" : "English"}.
-            
-            REQUIRED JSON STRUCTURE:
-            {
-              "title": "string",
-              "description": "string",
-              "ingredients": ["string"],
-              "originalIngredients": ["string"],
-              "baseServingsCount": number,
-              "instructions": [
-                {
-                  "text": "string",
-                  "ingredients": ["string"]
-                }
-              ],
-              "prepTime": "string",
-              "cookTime": "string",
-              "servings": "string",
-              "imageUrl": "string",
-              "recipeType": "food" | "baking"
-            }
-            
-            RECIPE TYPE CLASSIFICATION:
-            - Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
-            - Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
-          `;
+				const jsonSchema = z.toJSONSchema(recipeExtractSchema);
 
-				const prompt = `Find and extract the full recipe from this URL: ${url}. Ensure all units are accurately converted to ${targetSystem}.`;
+				const systemInstruction = `
+	You are an expert professional chef and baker. 
+	Your goal is to extract recipe details from the provided source.
+	
+	CRITICAL RULES:
+	1. The target measurement system is: ${targetSystem.toUpperCase()}.
+	2. Convert ALL measurements to: ${targetSystem === "metric" ? metricInstructions : imperialInstructions}
+	3. Provide the "originalIngredients" exactly from the source.
+	4. Translate to ${language === "sv" ? "Swedish" : "English"}.
+	5. For instruction steps: Extract the step text VERBATIM from the source without any paraphrasing, rewriting, or reordering.
+	6. Capture EVERY instruction step exactly as written in the recipe - do NOT skip, omit, or summarize any steps.
+	7. Do NOT create your own instructions or reword the original instructions.
+	8. Preserve the exact wording, order, and structure of steps as they appear in the source.
+	9. Each instruction step must be a direct extraction from the source text, not an interpretation or simplification.
+	
+	REQUIRED JSON SCHEMA FOR RESPONSE:
+${JSON.stringify(jsonSchema, null, 2)}
+	
+	RECIPE TYPE CLASSIFICATION:
+	- Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
+	- Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
+`;
 
 				try {
+					// Fetch the website content using Playwright to handle client-side rendering
+					const browser = await chromium.launch();
+					const page = await browser.newPage();
+					await page.goto(url, { waitUntil: "networkidle" });
+					const websiteContent = await page.content();
+					await browser.close();
+
+					// Create prompt with the actual website content
+					const contentPrompt = `Extract the complete recipe from this website content:
+
+${websiteContent}
+
+INSTRUCTIONS TEXT HANDLING (CRITICAL):
+- Extract all instruction steps EXACTLY as they appear in the source.
+- Use the VERBATIM text from the recipe - do not paraphrase, reword, or simplify.
+- If a step contains multiple actions, include them all without breaking them apart.
+- Do not add your own interpretations or rephrase any instructions.
+
+Ensure all measurement units are accurately converted to ${targetSystem}.`;
+
 					const response = await ai.models.generateContent({
 						model: "gemini-2.0-flash", // Updated model for better performance/availability or keep original "gemini-3-flash-preview" if valid
-						contents: prompt,
+						contents: contentPrompt,
 						config: {
 							systemInstruction: systemInstruction,
 							responseMimeType: "application/json",
+							responseJsonSchema: z.toJSONSchema(recipeExtractSchema),
 						},
 					});
 
