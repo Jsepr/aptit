@@ -26,6 +26,7 @@ import {
 	getIngredientExplanation,
 } from "../services/geminiService.ts";
 import type { MeasureSystem, Recipe, Translation } from "../types.ts";
+import { formatDuration } from "../utils/formatDuration.ts";
 
 interface RecipeDetailProps {
 	recipe: Recipe;
@@ -434,7 +435,8 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 									{t.time}
 								</p>
 								<p className="font-semibold">
-									{recipe.prepTime || recipe.cookTime || t.notAvailable}
+									{formatDuration(recipe.prepTime || recipe.cookTime) ||
+										t.notAvailable}
 								</p>
 							</div>
 						</div>
@@ -551,12 +553,14 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 												)}
 											</button>
 											<div className="flex-grow">
-													<p
-														className={`font-medium leading-relaxed transition-all ${completedSteps.has(idx) ? "text-gray-400" : "text-cream-900"}`}
-													>
-														{step.text}
-													</p>
-													{showOriginal && recipe.originalInstructions && recipe.originalInstructions[idx] && (
+												<p
+													className={`font-medium leading-relaxed transition-all ${completedSteps.has(idx) ? "text-gray-400" : "text-cream-900"}`}
+												>
+													{step.text}
+												</p>
+												{showOriginal &&
+													recipe.originalInstructions &&
+													recipe.originalInstructions[idx] && (
 														<p className="text-sm text-gray-500 italic mt-2">
 															{recipe.originalInstructions[idx].text}
 														</p>

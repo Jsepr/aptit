@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChefHat, Globe, Save, Scale } from "lucide-react";
+import { ChefHat, Globe,  Scale } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddRecipe from "../components/AddRecipe.tsx";
 import RecipeDetail from "../components/RecipeDetail.tsx";
@@ -11,7 +11,8 @@ export const Route = createFileRoute("/")({
 	component: HomeComponent,
 });
 
-const LOCAL_STORAGE_KEY = "aptit_recipes_v1";
+const LOCAL_STORAGE_KEY = "aptit_recipes_v2";
+const LEGACY_RECIPES_KEY = "aptit_recipes_v1";
 const LANG_STORAGE_KEY = "aptit_lang_v1";
 const SYSTEM_STORAGE_KEY = "aptit_system_v1";
 
@@ -24,6 +25,10 @@ function getInitialState(): AppState {
 			language: "sv",
 			measureSystem: "metric",
 		};
+	}
+
+	if (localStorage.getItem(LEGACY_RECIPES_KEY)) {
+		localStorage.removeItem(LEGACY_RECIPES_KEY);
 	}
 
 	const savedRecipes = localStorage.getItem(LOCAL_STORAGE_KEY);

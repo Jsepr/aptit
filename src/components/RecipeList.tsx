@@ -1,6 +1,7 @@
 import { ChevronRight, Clock, Palette, Users, Utensils } from "lucide-react";
 import type React from "react";
 import type { Recipe, Translation } from "../types.ts";
+import { formatDuration } from "../utils/formatDuration.ts";
 
 interface RecipeListProps {
 	recipes: Recipe[];
@@ -91,7 +92,7 @@ const RecipeList: React.FC<RecipeListProps> = ({
 										{(recipe.prepTime || recipe.cookTime) && (
 											<div className="flex items-center gap-1">
 												<Clock size={14} className="text-accent-soft" />
-												<span>{recipe.prepTime || recipe.cookTime}</span>
+												<span>{formatDuration(recipe.prepTime || recipe.cookTime)}</span>
 											</div>
 										)}
 										{recipe.servings && (

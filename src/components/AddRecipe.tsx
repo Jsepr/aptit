@@ -128,7 +128,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 					{t.addRecipe}
 				</h2>
 				<p className="text-gray-600 mb-8">
-					{t.pasteLink} ({measureSystem === "metric" ? t.metric : t.imperial})
+					{t.pasteLink}
 				</p>
 
 				<form onSubmit={handleSubmit} className="space-y-6">

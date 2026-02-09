@@ -79,7 +79,6 @@ export const Route = createFileRoute("/api/extract-recipe")({
             - Volume: Use deciliters (dl), milliliters (ml), or liters (l).
             - Temperature: Use Celsius (°C).
             - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
-            - If the original recipe uses teaspoons (tsp), tablespoons (tbsp), preserve those units instead of converting them.
           `;
 
 				const imperialInstructions = `
@@ -87,7 +86,6 @@ export const Route = createFileRoute("/api/extract-recipe")({
             - Volume: Use cups, fluid ounces (fl oz), or gallons.
             - Temperature: Use Fahrenheit (°F).
             - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
-            - If the original recipe uses spoon measures (tsp/tbsp), prefer keeping spoon measures instead of converting to fluid ounces (fl oz).
           `;
 
 				const jsonSchema = z.toJSONSchema(recipeExtractSchema);
@@ -100,13 +98,8 @@ export const Route = createFileRoute("/api/extract-recipe")({
 	1. The target measurement system is: ${targetSystem.toUpperCase()}.
 	2. Convert ALL measurements to: ${targetSystem === "metric" ? metricInstructions : imperialInstructions}
 	3. Provide the "originalIngredients" exactly from the source.
-				4. Translate to ${language === "sv" ? "Swedish" : "English"}.
-				5. Provide an "originalInstructions" array containing the verbatim instruction steps from the source in the original language.
-				6. For instruction steps: Extract the step text VERBATIM from the source without any paraphrasing, rewriting, or reordering.
-	6. Capture EVERY instruction step exactly as written in the recipe - do NOT skip, omit, or summarize any steps.
-	7. Do NOT create your own instructions or reword the original instructions.
-	8. Preserve the exact wording, order, and structure of steps as they appear in the source.
-	9. Each instruction step must be a direct extraction from the source text, not an interpretation or simplification.
+	4. Translate to ${language === "sv" ? "Swedish" : "English"}.
+	5. For instruction steps: Extract VERBATIM from the source without any paraphrasing, rewriting, reordering, or omitting steps. Preserve the exact wording, order, and structure as they appear in the source.
 	
 	REQUIRED JSON SCHEMA FOR RESPONSE:
 ${JSON.stringify(jsonSchema, null, 2)}
@@ -128,12 +121,6 @@ ${JSON.stringify(jsonSchema, null, 2)}
 					const contentPrompt = `Extract the complete recipe from this website content:
 
 ${websiteContent}
-
-INSTRUCTIONS TEXT HANDLING (CRITICAL):
-- Extract all instruction steps EXACTLY as they appear in the source.
-- Use the VERBATIM text from the recipe - do not paraphrase, reword, or simplify.
-- If a step contains multiple actions, include them all without breaking them apart.
-- Do not add your own interpretations or rephrase any instructions.
 
 Ensure all measurement units are accurately converted to ${targetSystem}.`;
 
