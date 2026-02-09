@@ -23,6 +23,7 @@ export interface Recipe {
 	description: string;
 	ingredients: string[];
 	instructions: Instruction[];
+	originalInstructions?: Instruction[];
 	originalIngredients?: string[];
 	prepTime?: string;
 	cookTime?: string;

@@ -44,6 +44,7 @@ const recipeExtractSchema = z.object({
 	description: z.string(),
 	ingredients: z.array(z.string()),
 	originalIngredients: z.array(z.string()),
+	originalInstructions: z.array(instructionSchema),
 	baseServingsCount: z.number(),
 	instructions: z.array(instructionSchema),
 	prepTime: z.string(),
@@ -97,8 +98,9 @@ export const Route = createFileRoute("/api/extract-recipe")({
 	1. The target measurement system is: ${targetSystem.toUpperCase()}.
 	2. Convert ALL measurements to: ${targetSystem === "metric" ? metricInstructions : imperialInstructions}
 	3. Provide the "originalIngredients" exactly from the source.
-	4. Translate to ${language === "sv" ? "Swedish" : "English"}.
-	5. For instruction steps: Extract the step text VERBATIM from the source without any paraphrasing, rewriting, or reordering.
+				4. Translate to ${language === "sv" ? "Swedish" : "English"}.
+				5. Provide an "originalInstructions" array containing the verbatim instruction steps from the source in the original language.
+				6. For instruction steps: Extract the step text VERBATIM from the source without any paraphrasing, rewriting, or reordering.
 	6. Capture EVERY instruction step exactly as written in the recipe - do NOT skip, omit, or summarize any steps.
 	7. Do NOT create your own instructions or reword the original instructions.
 	8. Preserve the exact wording, order, and structure of steps as they appear in the source.

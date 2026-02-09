@@ -58,6 +58,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 
 				const ingredients = extractedData.ingredients || [];
 				const originalIngredients = extractedData.originalIngredients || [];
+				const originalInstructionsRaw = extractedData.originalInstructions || [];
 				const baseServingsCount = extractedData.baseServingsCount || 1;
 
 				const instructions = extractedData.instructions
@@ -66,6 +67,14 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 								return { text: inst, ingredients: [] };
 							return inst;
 						})
+					: [];
+
+				const originalInstructions = originalInstructionsRaw
+					? originalInstructionsRaw.map((inst: any) => {
+						if (typeof inst === "string")
+							return { text: inst, ingredients: [] };
+						return inst;
+					})
 					: [];
 
 				const recipeData: RecipeData = { ingredients, instructions };
@@ -78,6 +87,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 					originalIngredients: originalIngredients,
 					baseServingsCount: baseServingsCount,
 					instructions: instructions,
+					originalInstructions: originalInstructions,
 					prepTime: extractedData.prepTime,
 					cookTime: extractedData.cookTime,
 					servings: extractedData.servings,

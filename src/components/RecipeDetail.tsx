@@ -551,11 +551,16 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 												)}
 											</button>
 											<div className="flex-grow">
-												<p
-													className={`font-medium leading-relaxed transition-all ${completedSteps.has(idx) ? "text-gray-400" : "text-cream-900"}`}
-												>
-													{step.text}
-												</p>
+													<p
+														className={`font-medium leading-relaxed transition-all ${completedSteps.has(idx) ? "text-gray-400" : "text-cream-900"}`}
+													>
+														{step.text}
+													</p>
+													{showOriginal && recipe.originalInstructions && recipe.originalInstructions[idx] && (
+														<p className="text-sm text-gray-500 italic mt-2">
+															{recipe.originalInstructions[idx].text}
+														</p>
+													)}
 												{step.ingredients.length > 0 && (
 													<button
 														type="button"
