@@ -100,13 +100,12 @@ export const Route = createFileRoute("/api/extract-recipe")({
 	3. Provide the "originalIngredients" exactly from the source.
 	4. Translate to ${language === "sv" ? "Swedish" : "English"}.
 	5. For instruction steps: Extract VERBATIM from the source without any paraphrasing, rewriting, reordering, or omitting steps. Preserve the exact wording, order, and structure as they appear in the source.
+	6. ALWAYS include the "recipeType" field in the response.
+	  - Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
+		- Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
 	
 	REQUIRED JSON SCHEMA FOR RESPONSE:
 ${JSON.stringify(jsonSchema, null, 2)}
-	
-	RECIPE TYPE CLASSIFICATION:
-	- Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
-	- Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
 `;
 
 				try {

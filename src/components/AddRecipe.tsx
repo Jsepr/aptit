@@ -53,8 +53,6 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 			});
 
 			if (extractedData) {
-				// Image generation disabled — use extracted image if available.
-				const animeImageUrl = null;
 
 				const ingredients = extractedData.ingredients || [];
 				const originalIngredients = extractedData.originalIngredients || [];
@@ -96,6 +94,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 					createdAt: Date.now(),
 					language: language,
 					measureSystem: measureSystem,
+					recipeType: extractedData.recipeType,
 					metricData: measureSystem === "metric" ? recipeData : undefined,
 					imperialData: measureSystem === "imperial" ? recipeData : undefined,
 				};

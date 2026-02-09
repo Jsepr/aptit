@@ -59,6 +59,7 @@ export interface Translation {
 	ingredients: string;
 	instructions: string;
 	servings: string;
+	portions: string;
 	prepTime: string;
 	cookTime: string;
 	source: string;

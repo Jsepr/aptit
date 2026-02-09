@@ -51,7 +51,8 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	onUpdate,
 	t,
 }) => {
-	const [multiplier, setMultiplier] = useState(1.0);
+	const baseMultiplier = recipe.recipeType === 'baking' ? 1 : recipe.baseServingsCount;
+	const [multiplier, setMultiplier] = useState(baseMultiplier);
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(
 		new Set(),
 	);
@@ -69,7 +70,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 		useState<IngredientInfo | null>(null);
 	const [isLoadingInfo, setIsLoadingInfo] = useState(false);
 
-	const scaleMultiplier = multiplier;
+	const scaleMultiplier = multiplier / baseMultiplier;
 
 	const scaleString = (str: string) => {
 		if (scaleMultiplier === 1) return str;
@@ -446,22 +447,22 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 							</div>
 							<div>
 								<p className="text-[10px] uppercase text-gray-400 font-bold tracking-widest leading-none mb-1">
-									{t.servings}
+									{recipe.recipeType === "baking" ? t.servings : t.portions}
 								</p>
 								<div className="flex items-center gap-3 bg-cream-50 rounded-full px-2 py-1 border border-cream-200 mt-1">
 									<button
 										type="button"
-										onClick={() => adjustMultiplier(-0.5)}
-										className="p-1 hover:bg-cream-200 rounded-full text-accent-orange transition-colors"
-									>
-										<Minus size={14} />
-									</button>
-									<span className="font-bold text-sm min-w-[30px] text-center">
-										{multiplier.toFixed(1)}
-									</span>
-									<button
-										type="button"
-										onClick={() => adjustMultiplier(0.5)}
+									onClick={() => adjustMultiplier(-1)}
+									className="p-1 hover:bg-cream-200 rounded-full text-accent-orange transition-colors"
+								>
+									<Minus size={14} />
+								</button>
+								<span className="font-bold text-sm min-w-[30px] text-center">
+									{multiplier}
+								</span>
+								<button
+									type="button"
+									onClick={() => adjustMultiplier(1)}
 										className="p-1 hover:bg-cream-200 rounded-full text-accent-orange transition-colors"
 									>
 										<Plus size={14} />
