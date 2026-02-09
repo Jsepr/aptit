@@ -1,25 +1,8 @@
 import type { Language, MeasureSystem, Recipe, RecipeData } from "../types.ts";
 
-export const generateAnimeFoodImage = async (dishName: string) => {
-	try {
-		const response = await fetch("/api/generate-image", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ dishName }),
-		});
-
-		if (!response.ok) {
-			throw new Error("Failed to generate image");
-		}
-
-		const data = await response.json();
-		return data.imageUrl;
-	} catch (error) {
-		console.error("Image Generation Error:", error);
-		return null;
-	}
+export const generateAnimeFoodImage = async (_dishName: string) => {
+	// Image generation disabled for now — return null so callers use extracted image if available.
+	return null;
 };
 
 export const extractRecipe = async (data: {

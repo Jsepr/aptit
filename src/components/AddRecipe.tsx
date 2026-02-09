@@ -8,10 +8,7 @@ import {
 import type React from "react";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import {
-	extractRecipe,
-	generateAnimeFoodImage,
-} from "../services/geminiService.ts";
+import { extractRecipe } from "../services/geminiService.ts";
 import type {
 	Language,
 	MeasureSystem,
@@ -56,17 +53,8 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 			});
 
 			if (extractedData) {
-				// Set appropriate status text based on recipe type
-				const recipeType = extractedData.recipeType || "food";
-				setStatusText(
-					recipeType === "baking"
-						? t.generatingImageBaking
-						: t.generatingImageFood,
-				);
-
-				const animeImageUrl = await generateAnimeFoodImage(
-					extractedData.title || "Delicious food",
-				);
+				// Image generation disabled — use extracted image if available.
+				const animeImageUrl = null;
 
 				const ingredients = extractedData.ingredients || [];
 				const originalIngredients = extractedData.originalIngredients || [];
@@ -94,7 +82,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 					cookTime: extractedData.cookTime,
 					servings: extractedData.servings,
 					sourceUrl: url,
-					imageUrl: animeImageUrl || extractedData.imageUrl,
+					imageUrl: extractedData.imageUrl,
 					createdAt: Date.now(),
 					language: language,
 					measureSystem: measureSystem,
