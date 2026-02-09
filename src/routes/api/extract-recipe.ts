@@ -79,6 +79,7 @@ export const Route = createFileRoute("/api/extract-recipe")({
             - Volume: Use deciliters (dl), milliliters (ml), or liters (l).
             - Temperature: Use Celsius (°C).
             - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
+            - If the original recipe uses teaspoons (tsp), tablespoons (tbsp), preserve those units instead of converting them.
           `;
 
 				const imperialInstructions = `
@@ -86,6 +87,7 @@ export const Route = createFileRoute("/api/extract-recipe")({
             - Volume: Use cups, fluid ounces (fl oz), or gallons.
             - Temperature: Use Fahrenheit (°F).
             - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
+            - If the original recipe uses spoon measures (tsp/tbsp), prefer keeping spoon measures instead of converting to fluid ounces (fl oz).
           `;
 
 				const jsonSchema = z.toJSONSchema(recipeExtractSchema);
