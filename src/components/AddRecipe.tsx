@@ -16,6 +16,7 @@ import type {
 	RecipeData,
 	Translation,
 } from "../types.ts";
+import { normalizeInstruction } from "../utils/stepIngredients.ts";
 
 interface AddRecipeProps {
 	onSave: (recipe: Recipe) => void;
@@ -53,26 +54,22 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 			});
 
 			if (extractedData) {
-
 				const ingredients = extractedData.ingredients || [];
 				const originalIngredients = extractedData.originalIngredients || [];
-				const originalInstructionsRaw = extractedData.originalInstructions || [];
+				const originalInstructionsRaw =
+					extractedData.originalInstructions || [];
 				const baseServingsCount = extractedData.baseServingsCount || 1;
 
 				const instructions = extractedData.instructions
-					? extractedData.instructions.map((inst: any) => {
-							if (typeof inst === "string")
-								return { text: inst, ingredients: [] };
-							return inst;
-						})
+					? extractedData.instructions.map((inst: unknown) =>
+							normalizeInstruction(inst, ingredients),
+						)
 					: [];
 
 				const originalInstructions = originalInstructionsRaw
-					? originalInstructionsRaw.map((inst: any) => {
-						if (typeof inst === "string")
-							return { text: inst, ingredients: [] };
-						return inst;
-					})
+					? originalInstructionsRaw.map((inst: unknown) =>
+							normalizeInstruction(inst, originalIngredients),
+						)
 					: [];
 
 				const recipeData: RecipeData = { ingredients, instructions };
@@ -126,9 +123,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 				<h2 className="text-3xl font-serif font-bold text-cream-900 mb-6">
 					{t.addRecipe}
 				</h2>
-				<p className="text-gray-600 mb-8">
-					{t.pasteLink}
-				</p>
+				<p className="text-gray-600 mb-8">{t.pasteLink}</p>
 
 				<form onSubmit={handleSubmit} className="space-y-6">
 					<div className="relative">

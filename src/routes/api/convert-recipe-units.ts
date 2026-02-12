@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import type { MeasureSystem, Recipe, RecipeData } from "../../types";
+import { normalizeInstruction } from "../../utils/stepIngredients";
 
 const parseJson = (text: string) => {
 	try {
@@ -32,6 +34,21 @@ const parseJson = (text: string) => {
 	}
 };
 
+const convertedRecipeDataSchema = z.object({
+	ingredients: z.array(z.string()),
+	instructions: z.array(
+		z.object({
+			text: z.string(),
+			ingredients: z.array(
+				z.object({
+					name: z.string(),
+					amount: z.string(),
+				}),
+			),
+		}),
+	),
+});
+
 export const Route = createFileRoute("/api/convert-recipe-units")({
 	server: {
 		handlers: {
@@ -49,6 +66,9 @@ export const Route = createFileRoute("/api/convert-recipe-units")({
             You are a conversion tool for professional recipes. 
             Convert the recipe to ${targetSystem.toUpperCase()} units.
             Keep the language as ${recipe.language === "sv" ? "Swedish" : "English"}.
+            For each instruction step, return ingredients as objects with:
+            - "name": ingredient name only
+            - "amount": converted amount with unit
             Return ONLY JSON.
         `;
 
@@ -67,13 +87,34 @@ export const Route = createFileRoute("/api/convert-recipe-units")({
 						config: {
 							systemInstruction: systemInstruction,
 							responseMimeType: "application/json",
+							responseJsonSchema: z.toJSONSchema(convertedRecipeDataSchema),
 						},
 					});
 
 					if (response.text) {
 						const parsedData = parseJson(response.text);
 						if (parsedData) {
-							return Response.json(parsedData as RecipeData);
+							const validated = convertedRecipeDataSchema.safeParse(parsedData);
+							if (validated.success) {
+								return Response.json(validated.data as RecipeData);
+							}
+
+							const fallback = {
+								ingredients: Array.isArray(parsedData.ingredients)
+									? parsedData.ingredients
+									: recipe.ingredients,
+								instructions: Array.isArray(parsedData.instructions)
+									? parsedData.instructions.map((instruction: unknown) =>
+											normalizeInstruction(
+												instruction,
+												Array.isArray(parsedData.ingredients)
+													? parsedData.ingredients
+													: recipe.ingredients,
+											),
+										)
+									: [],
+							};
+							return Response.json(fallback as RecipeData);
 						}
 					}
 					return Response.json(null);

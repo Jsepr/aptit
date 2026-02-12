@@ -25,8 +25,17 @@ import {
 	convertRecipeUnits,
 	getIngredientExplanation,
 } from "../services/geminiService.ts";
-import type { MeasureSystem, Recipe, Translation } from "../types.ts";
+import type {
+	MeasureSystem,
+	Recipe,
+	StepIngredient,
+	Translation,
+} from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
+import {
+	resolveStepIngredient,
+	splitIngredientAmountAndName,
+} from "../utils/stepIngredients.ts";
 
 interface RecipeDetailProps {
 	recipe: Recipe;
@@ -51,7 +60,8 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	onUpdate,
 	t,
 }) => {
-	const baseMultiplier = recipe.recipeType === 'baking' ? 1 : recipe.baseServingsCount;
+	const baseMultiplier =
+		recipe.recipeType === "baking" ? 1 : recipe.baseServingsCount;
 	const [multiplier, setMultiplier] = useState(baseMultiplier);
 	const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(
 		new Set(),
@@ -153,13 +163,21 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 		recipe.metricData,
 	]);
 
-	const findIngredientIndex = (ingString: string): number => {
-		const clean = ingString.toLowerCase();
-		return currentData.ingredients.findIndex(
-			(masterIng) =>
-				masterIng.toLowerCase().includes(clean) ||
-				clean.includes(masterIng.toLowerCase()),
-		);
+	const findIngredientIndex = (ingredientName: string): number => {
+		const clean = ingredientName.trim().toLowerCase();
+		if (!clean) return -1;
+
+		return currentData.ingredients.findIndex((masterIng) => {
+			const parsedMaster = splitIngredientAmountAndName(masterIng);
+			const masterName = (parsedMaster.name || masterIng).toLowerCase();
+			return masterName.includes(clean) || clean.includes(masterName);
+		});
+	};
+
+	const formatStepIngredient = (ingredient: StepIngredient): string => {
+		const resolved = resolveStepIngredient(ingredient, currentData.ingredients);
+		const amount = resolved.amount ? scaleString(resolved.amount) : "";
+		return [amount, resolved.name].filter(Boolean).join(" ");
 	};
 
 	const toggleMasterIngredient = (index: number) => {
@@ -170,15 +188,22 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 		setCheckedIngredients(next);
 
 		const masterIng = currentData.ingredients[index];
+		const masterName =
+			splitIngredientAmountAndName(masterIng).name.toLowerCase() ||
+			masterIng.toLowerCase();
 		const nextStepChecked = { ...stepCheckedIngredients };
 		const nextCompletedSteps = new Set(completedSteps);
 
 		currentData.instructions.forEach((step, sIdx) => {
 			const stepSet = new Set(nextStepChecked[sIdx] || []);
 			step.ingredients.forEach((si, iIdx) => {
+				const stepIngredientName = resolveStepIngredient(
+					si,
+					currentData.ingredients,
+				).name.toLowerCase();
 				if (
-					si.toLowerCase().includes(masterIng.toLowerCase()) ||
-					masterIng.toLowerCase().includes(si.toLowerCase())
+					stepIngredientName.includes(masterName) ||
+					masterName.includes(stepIngredientName)
 				) {
 					if (isNowChecked) stepSet.add(iIdx);
 					else stepSet.delete(iIdx);
@@ -199,7 +224,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	const toggleStepIngredient = (
 		stepIdx: number,
 		subIngIdx: number,
-		ingString: string,
+		ingredientName: string,
 		e: React.MouseEvent,
 	) => {
 		e.stopPropagation();
@@ -221,7 +246,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 		else nextCompletedSteps.delete(stepIdx);
 		setCompletedSteps(nextCompletedSteps);
 
-		const mIdx = findIngredientIndex(ingString);
+		const mIdx = findIngredientIndex(ingredientName);
 		if (mIdx !== -1) {
 			const nextMaster = new Set(checkedIngredients);
 			if (isNowChecked) nextMaster.add(mIdx);
@@ -242,7 +267,9 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 			const stepSet = new Set<number>();
 			step.ingredients.forEach((ing, iIdx) => {
 				stepSet.add(iIdx);
-				const mIdx = findIngredientIndex(ing);
+				const mIdx = findIngredientIndex(
+					resolveStepIngredient(ing, currentData.ingredients).name,
+				);
 				if (mIdx !== -1) nextMaster.add(mIdx);
 			});
 			nextStepChecked[stepIdx] = stepSet;
@@ -251,7 +278,9 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 			const stepSet = new Set<number>();
 			nextStepChecked[stepIdx] = stepSet;
 			step.ingredients.forEach((ing) => {
-				const mIdx = findIngredientIndex(ing);
+				const mIdx = findIngredientIndex(
+					resolveStepIngredient(ing, currentData.ingredients).name,
+				);
 				if (mIdx !== -1) nextMaster.delete(mIdx);
 			});
 		}
@@ -452,17 +481,17 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 								<div className="flex items-center gap-3 bg-cream-50 rounded-full px-2 py-1 border border-cream-200 mt-1">
 									<button
 										type="button"
-									onClick={() => adjustMultiplier(-1)}
-									className="p-1 hover:bg-cream-200 rounded-full text-accent-orange transition-colors"
-								>
-									<Minus size={14} />
-								</button>
-								<span className="font-bold text-sm min-w-[30px] text-center">
-									{multiplier}
-								</span>
-								<button
-									type="button"
-									onClick={() => adjustMultiplier(1)}
+										onClick={() => adjustMultiplier(-1)}
+										className="p-1 hover:bg-cream-200 rounded-full text-accent-orange transition-colors"
+									>
+										<Minus size={14} />
+									</button>
+									<span className="font-bold text-sm min-w-[30px] text-center">
+										{multiplier}
+									</span>
+									<button
+										type="button"
+										onClick={() => adjustMultiplier(1)}
 										className="p-1 hover:bg-cream-200 rounded-full text-accent-orange transition-colors"
 									>
 										<Plus size={14} />
@@ -596,7 +625,15 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 																<button
 																	type="button"
 																	onClick={(e) =>
-																		toggleStepIngredient(idx, iIdx, ing, e)
+																		toggleStepIngredient(
+																			idx,
+																			iIdx,
+																			resolveStepIngredient(
+																				ing,
+																				currentData.ingredients,
+																			).name,
+																			e,
+																		)
 																	}
 																	className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${stepCheckedIngredients[idx]?.has(iIdx) ? "bg-green-100 border-green-200 text-green-700 line-through" : "bg-white border-cream-200 shadow-sm hover:border-accent-orange"}`}
 																>
@@ -605,7 +642,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 																	) : (
 																		<Circle size={12} />
 																	)}
-																	{scaleString(ing)}
+																	{formatStepIngredient(ing)}
 																</button>
 															</div>
 														))}

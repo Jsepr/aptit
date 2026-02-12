@@ -5,9 +5,14 @@ export interface Ingredient {
 	originalString?: string;
 }
 
+export interface StepIngredient {
+	name: string;
+	amount: string;
+}
+
 export interface Instruction {
 	text: string;
-	ingredients: string[]; // specific ingredients with measurements for this step
+	ingredients: StepIngredient[]; // specific ingredients with measurements for this step
 }
 
 export type MeasureSystem = "metric" | "imperial";

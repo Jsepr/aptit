@@ -36,7 +36,12 @@ const parseJson = (text: string) => {
 
 const instructionSchema = z.object({
 	text: z.string(),
-	ingredients: z.array(z.string()),
+	ingredients: z.array(
+		z.object({
+			name: z.string(),
+			amount: z.string(),
+		}),
+	),
 });
 
 const recipeExtractSchema = z.object({
@@ -100,7 +105,12 @@ export const Route = createFileRoute("/api/extract-recipe")({
 	3. Provide the "originalIngredients" exactly from the source.
 	4. Translate to ${language === "sv" ? "Swedish" : "English"}.
 	5. For instruction steps: Extract VERBATIM from the source without any paraphrasing, rewriting, reordering, or omitting steps. Preserve the exact wording, order, and structure as they appear in the source.
-	6. ALWAYS include the "recipeType" field in the response.
+	6. For each instruction step's "ingredients":
+	  - Return every ingredient used in that step as an object with { "name", "amount" }.
+	  - "name" must be the ingredient name only (no quantity/unit).
+	  - "amount" must include the numeric amount and unit used in that step.
+	  - Use the same converted unit system as the top-level "ingredients".
+	7. ALWAYS include the "recipeType" field in the response.
 	  - Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
 		- Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
 	

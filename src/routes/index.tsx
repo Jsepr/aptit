@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChefHat, Globe,  Scale } from "lucide-react";
+import { ChefHat, Globe, Scale } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddRecipe from "../components/AddRecipe.tsx";
 import RecipeDetail from "../components/RecipeDetail.tsx";
@@ -11,8 +11,8 @@ export const Route = createFileRoute("/")({
 	component: HomeComponent,
 });
 
-const LOCAL_STORAGE_KEY = "aptit_recipes_v2";
-const LEGACY_RECIPES_KEY = "aptit_recipes_v1";
+const LOCAL_STORAGE_KEY = "aptit_recipes_v3";
+const OLD_RECIPE_STORAGE_KEYS = ["aptit_recipes_v1", "aptit_recipes_v2"];
 const LANG_STORAGE_KEY = "aptit_lang_v1";
 const SYSTEM_STORAGE_KEY = "aptit_system_v1";
 
@@ -27,8 +27,8 @@ function getInitialState(): AppState {
 		};
 	}
 
-	if (localStorage.getItem(LEGACY_RECIPES_KEY)) {
-		localStorage.removeItem(LEGACY_RECIPES_KEY);
+	for (const key of OLD_RECIPE_STORAGE_KEYS) {
+		localStorage.removeItem(key);
 	}
 
 	const savedRecipes = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -37,30 +37,18 @@ function getInitialState(): AppState {
 		SYSTEM_STORAGE_KEY,
 	) as MeasureSystem | null;
 
-	const parsedRecipes: any[] = savedRecipes ? JSON.parse(savedRecipes) : [];
-
-	const migratedRecipes: Recipe[] = parsedRecipes.map((r) => {
-		const updated = { ...r };
-		if (
-			updated.instructions &&
-			updated.instructions.length > 0 &&
-			typeof updated.instructions[0] === "string"
-		) {
-			updated.instructions = (updated.instructions as unknown as string[]).map(
-				(text) => ({
-					text: text,
-					ingredients: [],
-				}),
-			);
+	let parsedRecipes: Recipe[] = [];
+	if (savedRecipes) {
+		try {
+			const parsed = JSON.parse(savedRecipes);
+			parsedRecipes = Array.isArray(parsed) ? (parsed as Recipe[]) : [];
+		} catch {
+			localStorage.removeItem(LOCAL_STORAGE_KEY);
 		}
-		if (!updated.measureSystem) {
-			updated.measureSystem = "metric";
-		}
-		return updated as Recipe;
-	});
+	}
 
 	return {
-		recipes: migratedRecipes,
+		recipes: parsedRecipes,
 		view: "list",
 		selectedRecipeId: null,
 		language: savedLang || "sv",
