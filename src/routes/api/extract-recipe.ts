@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { createFileRoute } from "@tanstack/react-router";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { z } from "zod";
 import type { Language, MeasureSystem, Recipe } from "../../types";
 
@@ -57,6 +57,99 @@ const recipeExtractSchema = z.object({
 	imageUrl: z.string(),
 	recipeType: z.enum(["food", "baking"]),
 });
+
+const PLAYWRIGHT_NAVIGATION_TIMEOUT_MS = 30_000;
+const PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS = 10_000;
+const MAX_IMAGE_COUNT = 5;
+
+const waitForRecipeSignals = async (page: Page) => {
+	await Promise.allSettled([
+		page.waitForSelector('script[type="application/ld+json"]', {
+			timeout: PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS,
+		}),
+		page.waitForFunction(() => document.body.innerText.length > 500, {
+			timeout: PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS,
+		}),
+	]);
+};
+
+const extractRecipePageData = async (url: string): Promise<string> => {
+	const browser = await chromium.launch({
+		headless: true,
+		args: [
+			"--no-sandbox",
+			"--disable-setuid-sandbox",
+			"--disable-dev-shm-usage",
+			"--disable-gpu",
+		],
+	});
+
+	try {
+		const page = await browser.newPage();
+		await page.goto(url, {
+			waitUntil: "domcontentloaded",
+			timeout: PLAYWRIGHT_NAVIGATION_TIMEOUT_MS,
+		});
+		await waitForRecipeSignals(page);
+
+		const extracted = await page.evaluate(
+			({ maxImageCount }) => {
+				const recipeContainers = [
+					'[itemtype*="Recipe"]',
+					"article",
+					"main",
+					".recipe",
+					"#recipe",
+				];
+
+				const recipeText =
+					recipeContainers
+						.map((selector) => document.querySelector(selector)?.textContent?.trim())
+						.find((text) => !!text && text.length > 500) ||
+					document.body.innerText;
+
+				const structuredData = Array.from(
+					document.querySelectorAll('script[type="application/ld+json"]'),
+				).flatMap((script) => {
+					try {
+						const parsed = JSON.parse(script.textContent || "null");
+						return parsed ? [parsed] : [];
+					} catch {
+						return [];
+					}
+				});
+
+				const images = Array.from(document.querySelectorAll("img"))
+					.map((img) => img.src)
+					.filter(
+						(src) =>
+							Boolean(src) && !src.includes("icon") && !src.includes("logo"),
+					)
+					.slice(0, maxImageCount);
+
+				return {
+					structuredData,
+					content: recipeText,
+					images,
+				};
+			},
+			{ maxImageCount: MAX_IMAGE_COUNT },
+		);
+
+		return JSON.stringify(
+			{
+				...extracted,
+				url,
+			},
+			null,
+			2,
+		);
+	} catch (error: any) {
+		throw new Error(`Failed to fetch website content: ${error.message}`);
+	} finally {
+		await browser.close();
+	}
+};
 
 export const Route = createFileRoute("/api/extract-recipe")({
 	server: {
@@ -125,180 +218,7 @@ ${JSON.stringify(jsonSchema, null, 2)}
 `;
 
 				try {
-					// Fetch the website content using Playwright to handle client-side rendering
-					console.log(
-						"[Recipe Extract] Starting Playwright browser for URL:",
-						url,
-					);
-					let browser;
-					let recipeData = "";
-
-					try {
-						browser = await chromium.launch({
-							headless: true,
-							args: [
-								"--no-sandbox",
-								"--disable-setuid-sandbox",
-								"--disable-dev-shm-usage",
-								"--disable-gpu",
-							],
-						});
-						console.log("[Recipe Extract] Browser launched successfully");
-
-						const page = await browser.newPage();
-						console.log("[Recipe Extract] Navigating to URL...");
-
-						// Navigate to the page
-						await page.goto(url, {
-							waitUntil: "domcontentloaded",
-							timeout: 30000,
-						});
-						console.log("[Recipe Extract] Initial page load complete");
-
-						// Wait for recipe content to be present (more reliable than networkidle)
-						// Try multiple selectors to be more robust
-						try {
-							await page.waitForSelector('script[type="application/ld+json"]', {
-								timeout: 10000,
-							});
-							console.log("[Recipe Extract] Found JSON-LD data");
-						} catch (e) {
-							console.log(
-								"[Recipe Extract] No JSON-LD found, waiting for content to render...",
-							);
-							// Fallback: wait for common recipe elements with more lenient requirements
-							try {
-								await page.waitForFunction(
-									() => document.body.innerText.length > 500,
-									{ timeout: 10000 },
-								);
-								console.log("[Recipe Extract] Content loaded successfully");
-							} catch (contentError) {
-								console.log(
-									"[Recipe Extract] Content wait timed out, proceeding anyway...",
-								);
-								// Continue processing - the page may still have usable content
-							}
-						}
-
-						const fullContent = await page.content();
-						console.log(
-							"[Recipe Extract] Full content length:",
-							fullContent.length,
-						);
-
-						// Extract structured data (JSON-LD) if available - this is much smaller!
-						const structuredData = await page.evaluate(() => {
-							const scripts = Array.from(
-								document.querySelectorAll('script[type="application/ld+json"]'),
-							);
-							return scripts
-								.map((script) => {
-									try {
-										return JSON.parse(script.textContent || "");
-									} catch {
-										return null;
-									}
-								})
-								.filter(Boolean);
-						});
-
-						// Extract relevant text content only (not the entire HTML)
-						const extractedContent = await page.evaluate(() => {
-							// Get all text from common recipe containers
-							const recipeContainers = [
-								'[itemtype*="Recipe"]',
-								"article",
-								"main",
-								".recipe",
-								"#recipe",
-							];
-
-							let recipeText = "";
-							for (const selector of recipeContainers) {
-								const el = document.querySelector(selector);
-								if (el && el.textContent && el.textContent.length > 500) {
-									recipeText = el.textContent;
-									break;
-								}
-							}
-
-							// Fallback to body if no recipe container found
-							if (!recipeText) {
-								recipeText = document.body.innerText;
-							}
-
-							// Extract image URLs
-							const images = Array.from(document.querySelectorAll("img"))
-								.map((img) => img.src)
-								.filter(
-									(src) =>
-										src && !src.includes("icon") && !src.includes("logo"),
-								);
-
-							return {
-								text: recipeText,
-								images: images.slice(0, 5), // Only first 5 images
-							};
-						});
-
-						console.log(
-							"[Recipe Extract] Extracted content length:",
-							extractedContent.text.length,
-						);
-						console.log(
-							"[Recipe Extract] Found",
-							extractedContent.images.length,
-							"images",
-						);
-						console.log(
-							"[Recipe Extract] Found",
-							structuredData.length,
-							"structured data blocks",
-						);
-
-						// Combine structured data and text content for Gemini
-						recipeData = JSON.stringify(
-							{
-								structuredData,
-								content: extractedContent.text,
-								images: extractedContent.images,
-								url: url,
-							},
-							null,
-							2,
-						);
-
-						console.log(
-							"[Recipe Extract] Final payload size:",
-							recipeData.length,
-							"bytes",
-						);
-
-						await browser.close();
-						console.log("[Recipe Extract] Browser closed");
-					} catch (playwrightError: any) {
-						console.error("[Recipe Extract] Playwright Error:", {
-							message: playwrightError.message,
-							stack: playwrightError.stack,
-							name: playwrightError.name,
-						});
-
-						if (browser) {
-							try {
-								await browser.close();
-							} catch (closeError) {
-								console.error(
-									"[Recipe Extract] Error closing browser:",
-									closeError,
-								);
-							}
-						}
-
-						throw new Error(
-							`Failed to fetch website content: ${playwrightError.message}`,
-						);
-					}
+					const recipeData = await extractRecipePageData(url);
 
 					// Create prompt with the extracted recipe data
 					const contentPrompt = `Extract the complete recipe from this data:
@@ -314,7 +234,6 @@ The data includes:
 Use the structured data if available, otherwise extract from the content text.
 Ensure all measurement units are accurately converted to ${targetSystem}.`;
 
-					console.log("[Recipe Extract] Calling Gemini API...");
 					const response = await ai.models.generateContent({
 						model: "gemini-2.0-flash",
 						contents: contentPrompt,
@@ -324,15 +243,9 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 							responseJsonSchema: z.toJSONSchema(recipeExtractSchema),
 						},
 					});
-					console.log("[Recipe Extract] Gemini API response received");
-
 					if (response.text) {
 						const parsedData = parseJson(response.text);
 						if (parsedData) {
-							console.log(
-								"[Recipe Extract] Recipe parsed successfully:",
-								parsedData.title,
-							);
 							const result = {
 								...parsedData,
 								sourceUrl: url,
@@ -342,11 +255,6 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 							} as Partial<Recipe>;
 							return Response.json(result);
 						}
-						console.error(
-							"[Recipe Extract] Failed to parse JSON from Gemini response",
-						);
-					} else {
-						console.error("[Recipe Extract] No text in Gemini response");
 					}
 					return Response.json(null);
 				} catch (error: any) {
