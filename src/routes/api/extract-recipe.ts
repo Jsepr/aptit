@@ -120,11 +120,53 @@ ${JSON.stringify(jsonSchema, null, 2)}
 
 				try {
 					// Fetch the website content using Playwright to handle client-side rendering
-					const browser = await chromium.launch();
-					const page = await browser.newPage();
-					await page.goto(url, { waitUntil: "networkidle" });
-					const websiteContent = await page.content();
-					await browser.close();
+					console.log("[Recipe Extract] Starting Playwright browser for URL:", url);
+					let browser;
+					let websiteContent = "";
+					
+					try {
+						browser = await chromium.launch({
+							headless: true,
+							args: [
+								'--no-sandbox',
+								'--disable-setuid-sandbox',
+								'--disable-dev-shm-usage',
+								'--disable-gpu',
+							],
+						});
+						console.log("[Recipe Extract] Browser launched successfully");
+						
+						const page = await browser.newPage();
+						console.log("[Recipe Extract] Navigating to URL...");
+						
+						await page.goto(url, { 
+							waitUntil: "networkidle",
+							timeout: 30000,
+						});
+						console.log("[Recipe Extract] Page loaded successfully");
+						
+						websiteContent = await page.content();
+						console.log("[Recipe Extract] Content extracted, length:", websiteContent.length);
+						
+						await browser.close();
+						console.log("[Recipe Extract] Browser closed");
+					} catch (playwrightError: any) {
+						console.error("[Recipe Extract] Playwright Error:", {
+							message: playwrightError.message,
+							stack: playwrightError.stack,
+							name: playwrightError.name,
+						});
+						
+						if (browser) {
+							try {
+								await browser.close();
+							} catch (closeError) {
+								console.error("[Recipe Extract] Error closing browser:", closeError);
+							}
+						}
+						
+						throw new Error(`Failed to fetch website content: ${playwrightError.message}`);
+					}
 
 					// Create prompt with the actual website content
 					const contentPrompt = `Extract the complete recipe from this website content:
@@ -133,8 +175,9 @@ ${websiteContent}
 
 Ensure all measurement units are accurately converted to ${targetSystem}.`;
 
+					console.log("[Recipe Extract] Calling Gemini API...");
 					const response = await ai.models.generateContent({
-						model: "gemini-2.0-flash", // Updated model for better performance/availability or keep original "gemini-3-flash-preview" if valid
+						model: "gemini-2.0-flash",
 						contents: contentPrompt,
 						config: {
 							systemInstruction: systemInstruction,
@@ -142,10 +185,12 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 							responseJsonSchema: z.toJSONSchema(recipeExtractSchema),
 						},
 					});
+					console.log("[Recipe Extract] Gemini API response received");
 
 					if (response.text) {
 						const parsedData = parseJson(response.text);
 						if (parsedData) {
+							console.log("[Recipe Extract] Recipe parsed successfully:", parsedData.title);
 							const result = {
 								...parsedData,
 								sourceUrl: url,
@@ -155,11 +200,21 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 							} as Partial<Recipe>;
 							return Response.json(result);
 						}
+						console.error("[Recipe Extract] Failed to parse JSON from Gemini response");
+					} else {
+						console.error("[Recipe Extract] No text in Gemini response");
 					}
 					return Response.json(null);
 				} catch (error: any) {
-					console.error("Gemini API Error:", error);
-					return new Response(JSON.stringify({ error: error.message }), {
+					console.error("[Recipe Extract] Top-level error:", {
+						message: error.message,
+						stack: error.stack,
+						name: error.name,
+					});
+					return new Response(JSON.stringify({ 
+						error: error.message,
+						details: error.stack,
+					}), {
 						status: 500,
 					});
 				}
