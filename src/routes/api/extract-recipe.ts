@@ -34,14 +34,14 @@ const parseJson = (text: string) => {
 	}
 };
 
+const stepIngredientSchema = z.object({
+	name: z.string(),
+	amount: z.string(),
+});
+
 const instructionSchema = z.object({
 	text: z.string(),
-	ingredients: z.array(
-		z.object({
-			name: z.string(),
-			amount: z.string(),
-		}),
-	),
+	ingredients: z.array(stepIngredientSchema),
 });
 
 const recipeExtractSchema = z.object({
@@ -58,9 +58,115 @@ const recipeExtractSchema = z.object({
 	recipeType: z.enum(["food", "baking"]),
 });
 
+const jsonSchema = z.toJSONSchema(recipeExtractSchema);
+
 const PLAYWRIGHT_NAVIGATION_TIMEOUT_MS = 30_000;
 const PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS = 10_000;
 const MAX_IMAGE_COUNT = 5;
+
+const METRIC_MEASUREMENT_RULES = [
+	"Weight: Use grams (g) or kilograms (kg).",
+	"Volume: Use deciliters (dl), milliliters (ml), or liters (l), tsp or tbsp where it makes sense.",
+	"Temperature: Use Celsius (°C).",
+];
+
+const IMPERIAL_MEASUREMENT_RULES = [
+	"Weight: Use ounces (oz) or pounds (lb).",
+	"Volume: Use cups, fluid ounces (fl oz), or gallons, tsp or tbsp where it makes sense.",
+	"Temperature: Use Fahrenheit (°F).",
+];
+
+const STEP_INGREDIENT_SCHEMA_TEXT = JSON.stringify(
+	z.toJSONSchema(stepIngredientSchema),
+	null,
+	2,
+);
+
+const STEP_INGREDIENT_RULES = [
+	"Use this JSON schema for each step ingredient object:",
+	STEP_INGREDIENT_SCHEMA_TEXT,
+	"name: The ingredient name only (no quantity/unit) in singular form. It should match the ingredient name in the top-level ingredients array.",
+	"amount: The numeric amount and unit used in that step. There may be ingredients without specific amounts in steps, in which case this can be an empty string.",
+	'Use the same converted unit system as the top-level "ingredients".',
+];
+
+const RECIPE_TYPE_RULES = [
+	'Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)',
+	'Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)',
+];
+
+const TIME_RULES = [
+	"Extract the TOTAL time required for the recipe.",
+	"If separate prepTime and cookTime are provided, SUM them up to get the total time.",
+	'If totalTime is explicitly provided (e.g. "PT45M" or "Under 45 min"), use it.',
+	'You MUST return the time in ISO 8601 duration format (e.g. "PT1H30M", "PT45M").',
+	'Do not use human readable format like "1 hour 30 mins".',
+	'Handle Swedish time prefixes like "Under" (Under 45 min → PT45M).',
+];
+
+const DATA_SECTION_RULES = [
+	"structuredData: JSON-LD structured data from the page (if available)",
+	"content: The text content from the recipe",
+	"images: Available image URLs",
+	"url: The source URL",
+];
+
+const asBullets = (items: string[]) =>
+	items.map((item) => `  - ${item.replace(/\n/g, "\n    ")}`).join("\n");
+
+const buildSystemInstruction = ({
+	targetSystem,
+	language,
+	jsonSchema,
+}: {
+	targetSystem: MeasureSystem;
+	language: Language;
+	jsonSchema: object;
+}) => {
+	const measurementRules =
+		targetSystem === "metric"
+			? METRIC_MEASUREMENT_RULES
+			: IMPERIAL_MEASUREMENT_RULES;
+	const responseLanguage = language === "sv" ? "Swedish" : "English";
+
+	return [
+		"You are an expert professional chef and baker.",
+		"Your goal is to extract recipe details from the provided source.",
+		"",
+		"CRITICAL RULES:",
+		`1. The target measurement system is: ${targetSystem.toUpperCase()}.`,
+		`2. Convert ALL measurements to:\n${asBullets(measurementRules)}`,
+		'3. Provide the "originalIngredients" exactly from the source.',
+		`4. Translate to ${responseLanguage}.`,
+		"5. For the ingredients list: Extract the main ingredients with their total amounts for the entire recipe. Provide the amount first and then the ingredient name. Do not break down by steps, just provide the overall ingredient list with converted measurements.",
+		"6. For instruction steps: Include the exact same steps as in the source, but translated to the target language. Do not add, remove, or reorder steps.",
+		`7. For each instruction step's "ingredients":\n${asBullets(STEP_INGREDIENT_RULES)}`,
+		`8. ALWAYS include the "recipeType" field in the response.\n${asBullets(RECIPE_TYPE_RULES)}`,
+		`9. Time extraction:\n${asBullets(TIME_RULES)}`,
+		"",
+		"REQUIRED JSON SCHEMA FOR RESPONSE:",
+		JSON.stringify(jsonSchema, null, 2),
+	].join("\n");
+};
+
+const buildContentPrompt = ({
+	recipeData,
+	targetSystem,
+}: {
+	recipeData: string;
+	targetSystem: MeasureSystem;
+}) =>
+	[
+		"Extract the complete recipe from this data:",
+		"",
+		recipeData,
+		"",
+		"The data includes:",
+		...DATA_SECTION_RULES.map((rule) => `- ${rule}`),
+		"",
+		"Use the structured data if available, otherwise extract from the content text.",
+		`Ensure all measurement units are accurately converted to ${targetSystem}.`,
+	].join("\n");
 
 const waitForRecipeSignals = async (page: Page) => {
 	await Promise.allSettled([
@@ -171,68 +277,19 @@ export const Route = createFileRoute("/api/extract-recipe")({
 				const apiKey = process.env.GEMINI_API_KEY;
 				const ai = new GoogleGenAI({ apiKey });
 
-				const metricInstructions = `
-            - Weight: Use grams (g) or kilograms (kg).
-            - Volume: Use deciliters (dl), milliliters (ml), or liters (l).
-            - Temperature: Use Celsius (°C).
-            - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
-          `;
-
-				const imperialInstructions = `
-            - Weight: Use ounces (oz) or pounds (lb).
-            - Volume: Use cups, fluid ounces (fl oz), or gallons.
-            - Temperature: Use Fahrenheit (°F).
-            - Spoons: Use teaspoons (tsp) and tablespoons (tbsp).
-          `;
-
-				const jsonSchema = z.toJSONSchema(recipeExtractSchema);
-
-				const systemInstruction = `
-	You are an expert professional chef and baker. 
-	Your goal is to extract recipe details from the provided source.
-	
-	CRITICAL RULES:
-	1. The target measurement system is: ${targetSystem.toUpperCase()}.
-	2. Convert ALL measurements to: ${targetSystem === "metric" ? metricInstructions : imperialInstructions}
-	3. Provide the "originalIngredients" exactly from the source.
-	4. Translate to ${language === "sv" ? "Swedish" : "English"}.
-	5. For instruction steps: Extract VERBATIM from the source without any paraphrasing, rewriting, reordering, or omitting steps. Preserve the exact wording, order, and structure as they appear in the source.
-	6. For each instruction step's "ingredients":
-	  - Return every ingredient used in that step as an object with { "name", "amount" }.
-	  - "name" must be the ingredient name only (no quantity/unit).
-	  - "amount" must include the numeric amount and unit used in that step.
-	  - Use the same converted unit system as the top-level "ingredients".
-	7. ALWAYS include the "recipeType" field in the response.
-	  - Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
-		- Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
-	8. Time extraction:
-	  - Extract the TOTAL time required for the recipe.
-	  - If separate prepTime and cookTime are provided, SUM them up to get the total time.
-	  - If totalTime is explicitly provided (e.g. "PT45M" or "Under 45 min"), use it.
-	  - You MUST return the time in ISO 8601 duration format (e.g. "PT1H30M", "PT45M").
-	  - Do not use human readable format like "1 hour 30 mins".
-	  - Handle Swedish time prefixes like "Under" (Under 45 min → PT45M).
-	
-	REQUIRED JSON SCHEMA FOR RESPONSE:
-${JSON.stringify(jsonSchema, null, 2)}
-`;
+				const systemInstruction = buildSystemInstruction({
+					targetSystem,
+					language,
+					jsonSchema,
+				});
 
 				try {
 					const recipeData = await extractRecipePageData(url);
 
-					// Create prompt with the extracted recipe data
-					const contentPrompt = `Extract the complete recipe from this data:
-
-${recipeData}
-
-The data includes:
-- structuredData: JSON-LD structured data from the page (if available)
-- content: The text content from the recipe
-- images: Available image URLs
-- url: The source URL
-
-Use the structured data if available, otherwise extract from the content text.
-Ensure all measurement units are accurately converted to ${targetSystem}.`;
+					const contentPrompt = buildContentPrompt({
+						recipeData,
+						targetSystem,
+					});
 
 					const response = await ai.models.generateContent({
 						model: "gemini-2.0-flash",

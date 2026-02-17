@@ -9,7 +9,7 @@ export default defineConfig({
 		exclude: ["chromium-bidi"],
 	},
 	server: {
-		port: 3000,
+		port: 4000,
 	},
 	plugins: [
 		tailwindcss(),
