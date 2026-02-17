@@ -180,12 +180,6 @@ ${JSON.stringify(jsonSchema, null, 2)}
 						
 						// Extract relevant text content only (not the entire HTML)
 						const extractedContent = await page.evaluate(() => {
-							// Try to find recipe-specific content
-							const getTextContent = (selector: string) => {
-								const el = document.querySelector(selector);
-								return el ? el.textContent?.trim() : '';
-							};
-							
 							// Get all text from common recipe containers
 							const recipeContainers = [
 								'[itemtype*="Recipe"]',
