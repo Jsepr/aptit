@@ -52,8 +52,7 @@ const recipeExtractSchema = z.object({
 	originalInstructions: z.array(instructionSchema),
 	baseServingsCount: z.number(),
 	instructions: z.array(instructionSchema),
-	prepTime: z.string(),
-	cookTime: z.string(),
+	time: z.string().optional(),
 	servings: z.string(),
 	imageUrl: z.string(),
 	recipeType: z.enum(["food", "baking"]),
@@ -113,6 +112,13 @@ export const Route = createFileRoute("/api/extract-recipe")({
 	7. ALWAYS include the "recipeType" field in the response.
 	  - Use "baking" for recipes that primarily involve baking (bread, cakes, cookies, pastries, pies, etc.)
 		- Use "food" for all other recipes (main dishes, side dishes, salads, soups, etc.)
+	8. Time extraction:
+	  - Extract the TOTAL time required for the recipe.
+	  - If separate prepTime and cookTime are provided, SUM them up to get the total time.
+	  - If totalTime is explicitly provided (e.g. "PT45M" or "Under 45 min"), use it.
+	  - You MUST return the time in ISO 8601 duration format (e.g. "PT1H30M", "PT45M").
+	  - Do not use human readable format like "1 hour 30 mins".
+	  - Handle Swedish time prefixes like "Under" (Under 45 min → PT45M).
 	
 	REQUIRED JSON SCHEMA FOR RESPONSE:
 ${JSON.stringify(jsonSchema, null, 2)}
@@ -120,76 +126,95 @@ ${JSON.stringify(jsonSchema, null, 2)}
 
 				try {
 					// Fetch the website content using Playwright to handle client-side rendering
-					console.log("[Recipe Extract] Starting Playwright browser for URL:", url);
+					console.log(
+						"[Recipe Extract] Starting Playwright browser for URL:",
+						url,
+					);
 					let browser;
 					let recipeData = "";
-					
+
 					try {
 						browser = await chromium.launch({
 							headless: true,
 							args: [
-								'--no-sandbox',
-								'--disable-setuid-sandbox',
-								'--disable-dev-shm-usage',
-								'--disable-gpu',
+								"--no-sandbox",
+								"--disable-setuid-sandbox",
+								"--disable-dev-shm-usage",
+								"--disable-gpu",
 							],
 						});
 						console.log("[Recipe Extract] Browser launched successfully");
-						
+
 						const page = await browser.newPage();
 						console.log("[Recipe Extract] Navigating to URL...");
-						
+
 						// Navigate to the page
-						await page.goto(url, { 
+						await page.goto(url, {
 							waitUntil: "domcontentloaded",
 							timeout: 30000,
 						});
 						console.log("[Recipe Extract] Initial page load complete");
-						
+
 						// Wait for recipe content to be present (more reliable than networkidle)
 						// Try multiple selectors to be more robust
 						try {
-							await page.waitForSelector('script[type="application/ld+json"]', { timeout: 10000 });
+							await page.waitForSelector('script[type="application/ld+json"]', {
+								timeout: 10000,
+							});
 							console.log("[Recipe Extract] Found JSON-LD data");
 						} catch (e) {
-							console.log("[Recipe Extract] No JSON-LD found, waiting for content to render...");
-							// Fallback: wait for common recipe elements
-							await page.waitForFunction(
-								() => document.body.innerText.length > 1000,
-								{ timeout: 10000 }
+							console.log(
+								"[Recipe Extract] No JSON-LD found, waiting for content to render...",
 							);
+							// Fallback: wait for common recipe elements with more lenient requirements
+							try {
+								await page.waitForFunction(
+									() => document.body.innerText.length > 500,
+									{ timeout: 10000 },
+								);
+								console.log("[Recipe Extract] Content loaded successfully");
+							} catch (contentError) {
+								console.log(
+									"[Recipe Extract] Content wait timed out, proceeding anyway...",
+								);
+								// Continue processing - the page may still have usable content
+							}
 						}
-						
-						// Additional wait to ensure JavaScript has executed
-						await page.waitForTimeout(2000);
-						
+
 						const fullContent = await page.content();
-						console.log("[Recipe Extract] Full content length:", fullContent.length);
-						
+						console.log(
+							"[Recipe Extract] Full content length:",
+							fullContent.length,
+						);
+
 						// Extract structured data (JSON-LD) if available - this is much smaller!
 						const structuredData = await page.evaluate(() => {
-							const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-							return scripts.map(script => {
-								try {
-									return JSON.parse(script.textContent || '');
-								} catch {
-									return null;
-								}
-							}).filter(Boolean);
+							const scripts = Array.from(
+								document.querySelectorAll('script[type="application/ld+json"]'),
+							);
+							return scripts
+								.map((script) => {
+									try {
+										return JSON.parse(script.textContent || "");
+									} catch {
+										return null;
+									}
+								})
+								.filter(Boolean);
 						});
-						
+
 						// Extract relevant text content only (not the entire HTML)
 						const extractedContent = await page.evaluate(() => {
 							// Get all text from common recipe containers
 							const recipeContainers = [
 								'[itemtype*="Recipe"]',
-								'article',
-								'main',
-								'.recipe',
-								'#recipe'
+								"article",
+								"main",
+								".recipe",
+								"#recipe",
 							];
-							
-							let recipeText = '';
+
+							let recipeText = "";
 							for (const selector of recipeContainers) {
 								const el = document.querySelector(selector);
 								if (el && el.textContent && el.textContent.length > 500) {
@@ -197,37 +222,59 @@ ${JSON.stringify(jsonSchema, null, 2)}
 									break;
 								}
 							}
-							
+
 							// Fallback to body if no recipe container found
 							if (!recipeText) {
 								recipeText = document.body.innerText;
 							}
-							
+
 							// Extract image URLs
-							const images = Array.from(document.querySelectorAll('img'))
-								.map(img => img.src)
-								.filter(src => src && !src.includes('icon') && !src.includes('logo'));
-							
+							const images = Array.from(document.querySelectorAll("img"))
+								.map((img) => img.src)
+								.filter(
+									(src) =>
+										src && !src.includes("icon") && !src.includes("logo"),
+								);
+
 							return {
 								text: recipeText,
 								images: images.slice(0, 5), // Only first 5 images
 							};
 						});
-						
-						console.log("[Recipe Extract] Extracted content length:", extractedContent.text.length);
-						console.log("[Recipe Extract] Found", extractedContent.images.length, "images");
-						console.log("[Recipe Extract] Found", structuredData.length, "structured data blocks");
-						
+
+						console.log(
+							"[Recipe Extract] Extracted content length:",
+							extractedContent.text.length,
+						);
+						console.log(
+							"[Recipe Extract] Found",
+							extractedContent.images.length,
+							"images",
+						);
+						console.log(
+							"[Recipe Extract] Found",
+							structuredData.length,
+							"structured data blocks",
+						);
+
 						// Combine structured data and text content for Gemini
-						recipeData = JSON.stringify({
-							structuredData,
-							content: extractedContent.text,
-							images: extractedContent.images,
-							url: url,
-						}, null, 2);
-						
-						console.log("[Recipe Extract] Final payload size:", recipeData.length, "bytes");
-						
+						recipeData = JSON.stringify(
+							{
+								structuredData,
+								content: extractedContent.text,
+								images: extractedContent.images,
+								url: url,
+							},
+							null,
+							2,
+						);
+
+						console.log(
+							"[Recipe Extract] Final payload size:",
+							recipeData.length,
+							"bytes",
+						);
+
 						await browser.close();
 						console.log("[Recipe Extract] Browser closed");
 					} catch (playwrightError: any) {
@@ -236,16 +283,21 @@ ${JSON.stringify(jsonSchema, null, 2)}
 							stack: playwrightError.stack,
 							name: playwrightError.name,
 						});
-						
+
 						if (browser) {
 							try {
 								await browser.close();
 							} catch (closeError) {
-								console.error("[Recipe Extract] Error closing browser:", closeError);
+								console.error(
+									"[Recipe Extract] Error closing browser:",
+									closeError,
+								);
 							}
 						}
-						
-						throw new Error(`Failed to fetch website content: ${playwrightError.message}`);
+
+						throw new Error(
+							`Failed to fetch website content: ${playwrightError.message}`,
+						);
 					}
 
 					// Create prompt with the extracted recipe data
@@ -277,7 +329,10 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 					if (response.text) {
 						const parsedData = parseJson(response.text);
 						if (parsedData) {
-							console.log("[Recipe Extract] Recipe parsed successfully:", parsedData.title);
+							console.log(
+								"[Recipe Extract] Recipe parsed successfully:",
+								parsedData.title,
+							);
 							const result = {
 								...parsedData,
 								sourceUrl: url,
@@ -287,7 +342,9 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 							} as Partial<Recipe>;
 							return Response.json(result);
 						}
-						console.error("[Recipe Extract] Failed to parse JSON from Gemini response");
+						console.error(
+							"[Recipe Extract] Failed to parse JSON from Gemini response",
+						);
 					} else {
 						console.error("[Recipe Extract] No text in Gemini response");
 					}
@@ -298,12 +355,15 @@ Ensure all measurement units are accurately converted to ${targetSystem}.`;
 						stack: error.stack,
 						name: error.name,
 					});
-					return new Response(JSON.stringify({ 
-						error: error.message,
-						details: error.stack,
-					}), {
-						status: 500,
-					});
+					return new Response(
+						JSON.stringify({
+							error: error.message,
+							details: error.stack,
+						}),
+						{
+							status: 500,
+						},
+					);
 				}
 			},
 		},

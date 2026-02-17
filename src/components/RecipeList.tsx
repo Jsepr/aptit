@@ -89,10 +89,10 @@ const RecipeList: React.FC<RecipeListProps> = ({
 
 								<div className="mt-auto flex items-center justify-between text-xs font-medium text-gray-500 pt-4 border-t border-cream-100">
 									<div className="flex gap-4">
-										{(recipe.prepTime || recipe.cookTime) && (
+										{recipe.time && (
 											<div className="flex items-center gap-1">
 												<Clock size={14} className="text-accent-soft" />
-												<span>{formatDuration(recipe.prepTime || recipe.cookTime)}</span>
+												<span>{formatDuration(recipe.time)}</span>
 											</div>
 										)}
 										{recipe.servings && (

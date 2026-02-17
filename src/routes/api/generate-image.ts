@@ -4,9 +4,12 @@ export const Route = createFileRoute("/api/generate-image")({
 	server: {
 		handlers: {
 			POST: async () => {
-				return new Response(JSON.stringify({ error: "Image generation disabled" }), {
-					status: 410,
-				});
+				return new Response(
+					JSON.stringify({ error: "Image generation disabled" }),
+					{
+						status: 410,
+					},
+				);
 			},
 		},
 	},

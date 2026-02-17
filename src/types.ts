@@ -30,8 +30,7 @@ export interface Recipe {
 	instructions: Instruction[];
 	originalInstructions?: Instruction[];
 	originalIngredients?: string[];
-	prepTime?: string;
-	cookTime?: string;
+	time?: string;
 	servings?: string;
 	baseServingsCount: number;
 	sourceUrl: string;

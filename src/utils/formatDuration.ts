@@ -4,7 +4,10 @@
  * @param locale Language code for formatting
  * @returns Formatted duration string (e.g., "2h 30m" or "150m")
  */
-export const formatDuration = (duration: string | undefined, locale: string = "en"): string => {
+export const formatDuration = (
+	duration: string | undefined,
+	locale: string = "en",
+): string => {
 	if (!duration) return "";
 
 	// Parse ISO 8601 duration

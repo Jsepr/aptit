@@ -465,8 +465,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 									{t.time}
 								</p>
 								<p className="font-semibold">
-									{formatDuration(recipe.prepTime || recipe.cookTime) ||
-										t.notAvailable}
+									{formatDuration(recipe.time) || t.notAvailable}
 								</p>
 							</div>
 						</div>
