@@ -7,11 +7,6 @@ export interface ExtractRecipeResult {
 	errorCode?: ExtractRecipeErrorCode;
 }
 
-export const generateAnimeFoodImage = async (_dishName: string) => {
-	// Image generation disabled for now — return null so callers use extracted image if available.
-	return null;
-};
-
 export const extractRecipe = async (data: {
 	url: string;
 	language: Language;

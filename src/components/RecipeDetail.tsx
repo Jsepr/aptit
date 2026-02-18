@@ -26,6 +26,10 @@ import {
 	splitIngredientAmountAndName,
 } from "../utils/stepIngredients.ts";
 
+const IMAGE_PLACEHOLDER_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="100%" height="100%" fill="#F6F1E7"/></svg>',
+)}`;
+
 interface RecipeDetailProps {
 	recipe: Recipe;
 	onBack: () => void;
@@ -265,17 +269,14 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 			<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-cream-200">
 				<div className="relative h-64 md:h-80">
 					<img
-						src={
-							recipe.imageUrl ||
-							`https://picsum.photos/seed/${recipe.id}/800/400`
-						}
+						src={recipe.imageUrl || IMAGE_PLACEHOLDER_DATA_URI}
 						alt={recipe.title}
 						className="w-full h-full object-cover"
 						onError={(e) => {
 							const img = e.currentTarget;
 							if (img.dataset.fallbackApplied === "1") return;
 							img.dataset.fallbackApplied = "1";
-							img.src = `https://picsum.photos/seed/${recipe.id}/800/400`;
+							img.src = IMAGE_PLACEHOLDER_DATA_URI;
 						}}
 					/>
 					<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

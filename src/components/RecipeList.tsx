@@ -4,6 +4,10 @@ import type { Recipe } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
 
+const IMAGE_PLACEHOLDER_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="100%" height="100%" fill="#F6F1E7"/></svg>',
+)}`;
+
 interface RecipeListProps {
 	recipes: Recipe[];
 	onSelect: (id: string) => void;
@@ -69,14 +73,14 @@ const RecipeList: React.FC<RecipeListProps> = ({
 											const img = e.currentTarget;
 											if (img.dataset.fallbackApplied === "1") return;
 											img.dataset.fallbackApplied = "1";
-											img.src = `https://picsum.photos/seed/${recipe.id}/800/400`;
+											img.src = IMAGE_PLACEHOLDER_DATA_URI;
 										}}
 									/>
 								) : (
 									<div className="w-full h-full flex flex-col items-center justify-center bg-cream-50 text-cream-200">
 										<Palette size={48} />
 										<span className="text-[10px] uppercase tracking-widest mt-2 font-bold">
-											{t.animeFoodArt}
+											{t.noImage}
 										</span>
 									</div>
 								)}
