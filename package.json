@@ -10,7 +10,8 @@
 		"start": "npx srvx --prod -s ../client dist/server/server.js",
 		"format": "biome format --write",
 		"lint": "biome lint --write",
-		"check": "biome check --write"
+		"check": "biome check --write",
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@google/genai": "^1.33.0",

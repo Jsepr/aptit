@@ -9,13 +9,8 @@ import type React from "react";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { extractRecipe } from "../services/geminiService.ts";
-import type {
-	Language,
-	MeasureSystem,
-	Recipe,
-	RecipeData,
-	Translation,
-} from "../types.ts";
+import type { Language, MeasureSystem, Recipe, RecipeData } from "../types.ts";
+import type { Translation } from "../utils/i18n.ts";
 import { normalizeInstruction } from "../utils/stepIngredients.ts";
 
 interface AddRecipeProps {
@@ -47,7 +42,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 		setStatusText(t.analyzing);
 
 		try {
-			const extractedData = await extractRecipe({
+			const { recipe: extractedData, errorCode } = await extractRecipe({
 				url,
 				language,
 				targetSystem: measureSystem,
@@ -96,7 +91,9 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 				};
 				onSave(newRecipe);
 			} else {
-				setError(t.error);
+				setError(
+					errorCode === "PAGE_NOT_SUPPORTED" ? t.pageNotSupported : t.error,
+				);
 			}
 		} catch (err) {
 			console.error(err);

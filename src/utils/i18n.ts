@@ -1,7 +1,6 @@
-import type { Language, Translation } from "../types.ts";
+import type { Language } from "../types.ts";
 
-export const translations: Record<Language, Translation> = {
-	en: {
+const en = {
 		title: "Aptit",
 		addRecipe: "Add Recipe",
 		myRecipes: "My Recipes",
@@ -20,6 +19,8 @@ export const translations: Record<Language, Translation> = {
 		noRecipes: "No recipes yet. Add one to get started!",
 		error:
 			"Could not extract recipe. Please check the URL or try a different one.",
+		pageNotSupported:
+			"This page is not supported yet. Try another recipe site.",
 		tryAgain: "Try Again",
 		pasteLink: "Paste a link to any cooking or baking recipe",
 		exampleUrl: "e.g., https://example.com/best-chicken-curry",
@@ -47,7 +48,12 @@ export const translations: Record<Language, Translation> = {
 		checkIngredients: "Check Ingredients",
 		notAvailable: "N/A",
 		untitledRecipe: "Untitled Recipe",
-	},
+	};
+
+export type Translation = typeof en;
+
+export const translations: Record<Language, Translation> = {
+	en,
 	sv: {
 		title: "Aptit",
 		addRecipe: "Nytt Recept",
@@ -67,6 +73,8 @@ export const translations: Record<Language, Translation> = {
 		noRecipes: "Inga recept än. Lägg till ett för att börja!",
 		error:
 			"Kunde inte hämta receptet. Kontrollera länken eller försök med en annan.",
+		pageNotSupported:
+			"Den här sidan stöds inte ännu. Prova en annan receptsajt.",
 		tryAgain: "Försök igen",
 		pasteLink: "Klistra in en länk till ett mat- eller bakrecept",
 		exampleUrl: "t.ex. https://exempel.se/god-kycklinggryta",

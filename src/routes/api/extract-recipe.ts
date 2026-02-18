@@ -1,42 +1,42 @@
 import { GoogleGenAI } from "@google/genai";
 import { createFileRoute } from "@tanstack/react-router";
-import { chromium as vanillaChromium, type Page } from "playwright";
-import { addExtra } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { z } from "zod";
 import type { Language, MeasureSystem, Recipe } from "../../types";
 
-const chromium = addExtra(vanillaChromium);
-chromium.use(StealthPlugin());
-
 const parseJson = (text: string) => {
-	try {
-		// Remove markdown code fences
-		const cleaned = text
-			.replace(/```json/g, "")
-			.replace(/```/g, "")
-			.trim();
-
-		if (!cleaned) return null;
-
-		// Find the first '{' and the last '}' to extract just the JSON object
-		const firstBrace = cleaned.indexOf("{");
-		const lastBrace = cleaned.lastIndexOf("}");
-
-		if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
-			console.error("No valid JSON object found in response");
+	const tryParseObject = (candidate: string) => {
+		try {
+			const parsed = JSON.parse(candidate);
+			return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+				? (parsed as Record<string, unknown>)
+				: null;
+		} catch {
 			return null;
 		}
+	};
 
-		// Extract only the JSON object, ignoring any text before or after
-		const jsonText = cleaned.substring(firstBrace, lastBrace + 1);
+	const extractObjectSlice = (value: string) => {
+		const firstBrace = value.indexOf("{");
+		const lastBrace = value.lastIndexOf("}");
+		if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+			return null;
+		}
+		return value.substring(firstBrace, lastBrace + 1);
+	};
 
-		return JSON.parse(jsonText);
-	} catch (e) {
-		console.error("JSON Parse Error", e);
-		console.error("Failed to parse text:", text.substring(0, 500));
-		return null;
+	const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+	if (!cleaned) return null;
+
+	const direct = tryParseObject(cleaned);
+	if (direct) return direct;
+
+	const objectSlice = extractObjectSlice(cleaned);
+	if (objectSlice) {
+		const parsedObject = tryParseObject(objectSlice);
+		if (parsedObject) return parsedObject;
 	}
+
+	return null;
 };
 
 const stepIngredientSchema = z.object({
@@ -63,11 +63,8 @@ const recipeExtractSchema = z.object({
 	recipeType: z.enum(["food", "baking"]),
 });
 
-const jsonSchema = z.toJSONSchema(recipeExtractSchema);
-
-const PLAYWRIGHT_NAVIGATION_TIMEOUT_MS = 30_000;
-const PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS = 10_000;
-const MAX_IMAGE_COUNT = 5;
+const recipeExtractJsonSchema = z.toJSONSchema(recipeExtractSchema);
+const EXTRACTION_MODEL = "gemini-3-flash-preview";
 
 const METRIC_MEASUREMENT_RULES = [
 	"Weight: Use grams (g) or kilograms (kg).",
@@ -106,14 +103,15 @@ const TIME_RULES = [
 	'If totalTime is explicitly provided (e.g. "PT45M" or "Under 45 min"), use it.',
 	'You MUST return the time in ISO 8601 duration format (e.g. "PT1H30M", "PT45M").',
 	'Do not use human readable format like "1 hour 30 mins".',
-	'Handle Swedish time prefixes like "Under" (Under 45 min → PT45M).',
+	'Handle Swedish time prefixes like "Under" (Under 45 min -> PT45M).',
 ];
 
-const DATA_SECTION_RULES = [
-	"structuredData: JSON-LD structured data from the page (if available)",
-	"content: The text content from the recipe",
-	"images: Available image URLs",
-	"url: The source URL",
+const IMAGE_RULES = [
+	"Set imageUrl to the best recipe hero image URL from the source.",
+	"Prefer, in order: schema.org Recipe image, og:image, twitter:image.",
+	"imageUrl must be an absolute URL (https://...).",
+	"Do not use logos, icons, sprites, placeholders, or ad/tracker images.",
+	"If no credible recipe image is available, return an empty string.",
 ];
 
 const asBullets = (items: string[]) =>
@@ -122,11 +120,9 @@ const asBullets = (items: string[]) =>
 const buildSystemInstruction = ({
 	targetSystem,
 	language,
-	jsonSchema,
 }: {
 	targetSystem: MeasureSystem;
 	language: Language;
-	jsonSchema: object;
 }) => {
 	const measurementRules =
 		targetSystem === "metric"
@@ -143,150 +139,116 @@ const buildSystemInstruction = ({
 		`2. Convert ALL measurements to:\n${asBullets(measurementRules)}`,
 		'3. Provide the "originalIngredients" exactly from the source.',
 		`4. Translate to ${responseLanguage}.`,
-		"5. For the ingredients list: Extract the main ingredients with their total amounts for the entire recipe. Provide the amount first and then the ingredient name. Do not break down by steps, just provide the overall ingredient list with converted measurements.",
-		"6. For instruction steps: Include the exact same steps as in the source, but translated to the target language. Do not add, remove, or reorder steps.",
+		"5. For the ingredients list: Extract the main ingredients with their total amounts for the entire recipe.",
+		"6. For instruction steps: Include the exact same steps as in the source, but translated to the target language.",
 		`7. For each instruction step's "ingredients":\n${asBullets(STEP_INGREDIENT_RULES)}`,
 		`8. ALWAYS include the "recipeType" field in the response.\n${asBullets(RECIPE_TYPE_RULES)}`,
 		`9. Time extraction:\n${asBullets(TIME_RULES)}`,
+		`10. Image extraction:\n${asBullets(IMAGE_RULES)}`,
 		"",
 		"REQUIRED JSON SCHEMA FOR RESPONSE:",
-		JSON.stringify(jsonSchema, null, 2),
+		JSON.stringify(recipeExtractJsonSchema, null, 2),
 	].join("\n");
 };
 
-const buildContentPrompt = ({
-	recipeData,
+const buildGroundedPrompt = ({
+	url,
+	language,
 	targetSystem,
 }: {
-	recipeData: string;
+	url: string;
+	language: Language;
 	targetSystem: MeasureSystem;
 }) =>
 	[
-		"Extract the complete recipe from this data:",
+		"Fetch and extract recipe details from this exact URL using URL context retrieval:",
+		url,
 		"",
-		recipeData,
+		`Target language: ${language}`,
+		`Target measurement system: ${targetSystem}`,
 		"",
-		"The data includes:",
-		...DATA_SECTION_RULES.map((rule) => `- ${rule}`),
-		"",
-		"Use the structured data if available, otherwise extract from the content text.",
-		`Ensure all measurement units are accurately converted to ${targetSystem}.`,
+		"Use only information from this URL retrieval. Do not use related or similar pages.",
+		"Return a concise extraction containing title, ingredients, steps, servings/yield, time, and image URL candidates from the source.",
 	].join("\n");
 
-const waitForRecipeSignals = async (page: Page) => {
-	await Promise.allSettled([
-		page.waitForSelector('script[type="application/ld+json"]', {
-			timeout: PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS,
+const toResult = (
+	parsedData: Record<string, unknown>,
+	url: string,
+	language: Language,
+	targetSystem: MeasureSystem,
+) =>
+	({
+	...parsedData,
+	sourceUrl: url,
+	createdAt: Date.now(),
+	language: language,
+	measureSystem: targetSystem,
+}) as Partial<Recipe>;
+
+const pageNotSupportedResponse = () =>
+	new Response(
+		JSON.stringify({
+			errorCode: "PAGE_NOT_SUPPORTED",
+			error: "Could not extract a valid recipe from this page.",
 		}),
-		page.waitForFunction(() => document.body.innerText.length > 500, {
-			timeout: PLAYWRIGHT_CONTENT_WAIT_TIMEOUT_MS,
+		{ status: 422 },
+	);
+
+const extractionFailedResponse = (message: string) =>
+	new Response(
+		JSON.stringify({
+			errorCode: "EXTRACTION_FAILED",
+			error: message,
 		}),
-	]);
+		{ status: 500 },
+	);
+
+const normalizeHost = (url: string) => {
+	try {
+		return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+	} catch {
+		return "";
+	}
 };
 
-const extractRecipePageData = async (url: string): Promise<string> => {
-	const browser = await chromium.launch({
-		headless: true,
-		args: [
-			"--no-sandbox",
-			"--disable-setuid-sandbox",
-			"--disable-dev-shm-usage",
-			"--disable-gpu",
-		],
-	});
+const isSameDomain = (targetUrl: string, retrievedUrl: string) => {
+	const targetHost = normalizeHost(targetUrl);
+	const retrievedHost = normalizeHost(retrievedUrl);
+	if (!targetHost || !retrievedHost) return false;
+	return (
+		targetHost === retrievedHost ||
+		targetHost.endsWith(`.${retrievedHost}`) ||
+		retrievedHost.endsWith(`.${targetHost}`)
+	);
+};
 
-	try {
-		const context = await browser.newContext({
-			userAgent:
-				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-			viewport: { width: 1920, height: 1080 },
-			deviceScaleFactor: 1,
-			locale: "en-US",
-			timezoneId: "America/New_York",
-		});
+const getUrlContextSummary = (response: unknown, targetUrl: string) => {
+	const payload = response as {
+		candidates?: Array<{
+			urlContextMetadata?: {
+				urlMetadata?: Array<{
+					retrievedUrl?: string;
+					urlRetrievalStatus?: string;
+				}>;
+			};
+		}>;
+	};
 
-		const page = await context.newPage();
+	const allMetadata = (payload.candidates || []).flatMap((candidate) =>
+		candidate.urlContextMetadata?.urlMetadata || [],
+	);
 
-		await page.setExtraHTTPHeaders({
-			"Accept-Language": "en-US,en;q=0.9",
-			"Upgrade-Insecure-Requests": "1",
-			Accept:
-				"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-		});
+	const hasSuccessForTarget = allMetadata.some(
+		(entry) =>
+			entry.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS" &&
+			typeof entry.retrievedUrl === "string" &&
+			isSameDomain(targetUrl, entry.retrievedUrl),
+	);
 
-		const response = await page.goto(url, {
-			waitUntil: "domcontentloaded",
-			timeout: PLAYWRIGHT_NAVIGATION_TIMEOUT_MS,
-		});
-
-		if (response && response.status() >= 400) {
-			const content = await page.content();
-			console.warn(
-				`[Recipe Extract] Warning: Received status code ${response.status()} for URL: ${url}`,
-			);
-			console.warn(
-				`[Recipe Extract] Error page content preview: ${content.substring(0, 500)}`,
-			);
-		}
-		await waitForRecipeSignals(page);
-
-		const extracted = await page.evaluate(
-			({ maxImageCount }) => {
-				const recipeContainers = [
-					'[itemtype*="Recipe"]',
-					"article",
-					"main",
-					".recipe",
-					"#recipe",
-				];
-
-				const recipeText =
-					recipeContainers
-						.map((selector) => document.querySelector(selector)?.textContent?.trim())
-						.find((text) => !!text && text.length > 500) ||
-					document.body.innerText;
-
-				const structuredData = Array.from(
-					document.querySelectorAll('script[type="application/ld+json"]'),
-				).flatMap((script) => {
-					try {
-						const parsed = JSON.parse(script.textContent || "null");
-						return parsed ? [parsed] : [];
-					} catch {
-						return [];
-					}
-				});
-
-				const images = Array.from(document.querySelectorAll("img"))
-					.map((img) => img.src)
-					.filter(
-						(src) =>
-							Boolean(src) && !src.includes("icon") && !src.includes("logo"),
-					)
-					.slice(0, maxImageCount);
-
-				return {
-					structuredData,
-					content: recipeText,
-					images,
-				};
-			},
-			{ maxImageCount: MAX_IMAGE_COUNT },
-		);
-
-		return JSON.stringify(
-			{
-				...extracted,
-				url,
-			},
-			null,
-			2,
-		);
-	} catch (error: any) {
-		throw new Error(`Failed to fetch website content: ${error.message}`);
-	} finally {
-		await browser.close();
-	}
+	return {
+		allMetadata,
+		hasSuccessForTarget,
+	};
 };
 
 export const Route = createFileRoute("/api/extract-recipe")({
@@ -301,66 +263,55 @@ export const Route = createFileRoute("/api/extract-recipe")({
 				const { url, language, targetSystem } = data;
 
 				if (!process.env.GEMINI_API_KEY) {
-					console.error("API Key is missing");
-					return new Response(JSON.stringify({ error: "API Key is missing" }), {
-						status: 500,
-					});
+					return extractionFailedResponse("API Key is missing");
 				}
-				const apiKey = process.env.GEMINI_API_KEY;
-				const ai = new GoogleGenAI({ apiKey });
 
+				const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 				const systemInstruction = buildSystemInstruction({
 					targetSystem,
 					language,
-					jsonSchema,
 				});
 
 				try {
-					const recipeData = await extractRecipePageData(url);
-
-					const contentPrompt = buildContentPrompt({
-						recipeData,
+					const groundedPrompt = buildGroundedPrompt({
+						url,
+						language,
 						targetSystem,
 					});
 
-					const response = await ai.models.generateContent({
-						model: "gemini-2.0-flash",
-						contents: contentPrompt,
+					const groundedResponse = await ai.models.generateContent({
+						model: EXTRACTION_MODEL,
+						contents: groundedPrompt,
 						config: {
-							systemInstruction: systemInstruction,
+							systemInstruction,
 							responseMimeType: "application/json",
-							responseJsonSchema: z.toJSONSchema(recipeExtractSchema),
+							responseJsonSchema: recipeExtractJsonSchema,
+							tools: [{ urlContext: {} }],
 						},
 					});
-					if (response.text) {
-						const parsedData = parseJson(response.text);
-						if (parsedData) {
-							const result = {
-								...parsedData,
-								sourceUrl: url,
-								createdAt: Date.now(),
-								language: language,
-								measureSystem: targetSystem,
-							} as Partial<Recipe>;
-							return Response.json(result);
+
+					const urlContextSummary = getUrlContextSummary(groundedResponse, url);
+					if (!urlContextSummary.hasSuccessForTarget) {
+						return pageNotSupportedResponse();
+					}
+
+					const groundedText = groundedResponse.text?.trim() || "";
+					if (!groundedText) {
+						return pageNotSupportedResponse();
+					}
+
+					const parsedGrounded = parseJson(groundedText);
+					if (parsedGrounded) {
+						const validatedGrounded = recipeExtractSchema.safeParse(parsedGrounded);
+						if (validatedGrounded.success) {
+							return Response.json(
+								toResult(validatedGrounded.data, url, language, targetSystem),
+							);
 						}
 					}
-					return Response.json(null);
+					return pageNotSupportedResponse();
 				} catch (error: any) {
-					console.error("[Recipe Extract] Top-level error:", {
-						message: error.message,
-						stack: error.stack,
-						name: error.name,
-					});
-					return new Response(
-						JSON.stringify({
-							error: error.message,
-							details: error.stack,
-						}),
-						{
-							status: 500,
-						},
-					);
+					return extractionFailedResponse(error.message);
 				}
 			},
 		},

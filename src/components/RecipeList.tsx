@@ -1,7 +1,8 @@
 import { ChevronRight, Clock, Palette, Users, Utensils } from "lucide-react";
 import type React from "react";
-import type { Recipe, Translation } from "../types.ts";
+import type { Recipe } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
+import type { Translation } from "../utils/i18n.ts";
 
 interface RecipeListProps {
 	recipes: Recipe[];
@@ -64,6 +65,12 @@ const RecipeList: React.FC<RecipeListProps> = ({
 										src={recipe.imageUrl}
 										alt={recipe.title}
 										className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+										onError={(e) => {
+											const img = e.currentTarget;
+											if (img.dataset.fallbackApplied === "1") return;
+											img.dataset.fallbackApplied = "1";
+											img.src = `https://picsum.photos/seed/${recipe.id}/800/400`;
+										}}
 									/>
 								) : (
 									<div className="w-full h-full flex flex-col items-center justify-center bg-cream-50 text-cream-200">
