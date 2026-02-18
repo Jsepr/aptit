@@ -17,11 +17,6 @@ export interface Instruction {
 
 export type MeasureSystem = "metric" | "imperial";
 
-export interface RecipeData {
-	ingredients: string[];
-	instructions: Instruction[];
-}
-
 export interface Recipe {
 	id: string;
 	title: string;
@@ -39,16 +34,15 @@ export interface Recipe {
 	language: "en" | "sv";
 	measureSystem: MeasureSystem;
 	recipeType?: "food" | "baking";
-	metricData?: RecipeData;
-	imperialData?: RecipeData;
 }
 
 export type Language = "en" | "sv";
 
 export interface AppState {
 	recipes: Recipe[];
-	view: "list" | "add" | "detail";
+	view: "list" | "add" | "detail" | "settings";
 	selectedRecipeId: string | null;
 	language: Language;
 	measureSystem: MeasureSystem;
+	preferencesConfigured: boolean;
 }

@@ -48,6 +48,15 @@ const en = {
 		checkIngredients: "Check Ingredients",
 		notAvailable: "N/A",
 		untitledRecipe: "Untitled Recipe",
+		settings: "Settings",
+		settingsTitle: "Settings",
+		settingsDescription: "Update your language and measurement preferences.",
+		firstTimeSetupTitle: "Set up Aptit",
+		firstTimeSetupDescription:
+			"Choose your language and measurement system to get started.",
+		saveSettings: "Save Settings",
+		continueLabel: "Continue",
+		language: "Language",
 	};
 
 export type Translation = typeof en;
@@ -102,5 +111,14 @@ export const translations: Record<Language, Translation> = {
 		checkIngredients: "Kolla ingredienser",
 		notAvailable: "N/A",
 		untitledRecipe: "Namnlöst recept",
+		settings: "Inställningar",
+		settingsTitle: "Inställningar",
+		settingsDescription: "Uppdatera språk och enhetssystem.",
+		firstTimeSetupTitle: "Kom igång med Aptit",
+		firstTimeSetupDescription:
+			"Välj språk och enhetssystem för att fortsätta.",
+		saveSettings: "Spara inställningar",
+		continueLabel: "Fortsätt",
+		language: "Språk",
 	},
 };

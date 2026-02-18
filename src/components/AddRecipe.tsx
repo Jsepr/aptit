@@ -9,7 +9,7 @@ import type React from "react";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { extractRecipe } from "../services/geminiService.ts";
-import type { Language, MeasureSystem, Recipe, RecipeData } from "../types.ts";
+import type { Language, MeasureSystem, Recipe } from "../types.ts";
 import type { Translation } from "../utils/i18n.ts";
 import { normalizeInstruction } from "../utils/stepIngredients.ts";
 
@@ -67,8 +67,6 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 						)
 					: [];
 
-				const recipeData: RecipeData = { ingredients, instructions };
-
 				const newRecipe: Recipe = {
 					id: uuidv4(),
 					title: extractedData.title || "Untitled Recipe",
@@ -86,8 +84,6 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 					language: language,
 					measureSystem: measureSystem,
 					recipeType: extractedData.recipeType,
-					metricData: measureSystem === "metric" ? recipeData : undefined,
-					imperialData: measureSystem === "imperial" ? recipeData : undefined,
 				};
 				onSave(newRecipe);
 			} else {

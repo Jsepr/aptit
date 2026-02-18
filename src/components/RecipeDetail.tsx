@@ -20,12 +20,9 @@ import {
 	X,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-	convertRecipeUnits,
-	getIngredientExplanation,
-} from "../services/geminiService.ts";
-import type { MeasureSystem, Recipe, StepIngredient } from "../types.ts";
+import { useMemo, useState } from "react";
+import { getIngredientExplanation } from "../services/geminiService.ts";
+import type { Recipe, StepIngredient } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
 import {
@@ -35,10 +32,8 @@ import {
 
 interface RecipeDetailProps {
 	recipe: Recipe;
-	globalMeasureSystem: MeasureSystem;
 	onBack: () => void;
 	onDelete: (id: string) => void;
-	onUpdate: (updatedRecipe: Recipe) => void;
 	t: Translation;
 }
 
@@ -50,10 +45,8 @@ interface IngredientInfo {
 
 const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	recipe,
-	globalMeasureSystem,
 	onBack,
 	onDelete,
-	onUpdate,
 	t,
 }) => {
 	const baseMultiplier =
@@ -69,7 +62,6 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	const [expandedIngredients, setExpandedIngredients] = useState<Set<number>>(
 		new Set([0]),
 	);
-	const [isConverting, setIsConverting] = useState(false);
 	const [showOriginal, setShowOriginal] = useState(false);
 
 	const [activeIngredientInfo, setActiveIngredientInfo] =
@@ -114,50 +106,11 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	};
 
 	const currentData = useMemo(() => {
-		return globalMeasureSystem === "metric"
-			? recipe.metricData || {
-					ingredients: recipe.ingredients,
-					instructions: recipe.instructions,
-				}
-			: recipe.imperialData || {
-					ingredients: recipe.ingredients,
-					instructions: recipe.instructions,
-				};
-	}, [globalMeasureSystem, recipe]);
-
-	const handleConvert = useCallback(async () => {
-		setIsConverting(true);
-		try {
-			const data = await convertRecipeUnits({
-				recipe,
-				targetSystem: globalMeasureSystem,
-			});
-			if (data) {
-				const updatedRecipe = { ...recipe };
-				if (globalMeasureSystem === "metric") updatedRecipe.metricData = data;
-				else updatedRecipe.imperialData = data;
-				onUpdate(updatedRecipe);
-			}
-		} catch (err) {
-			console.error("Conversion failed", err);
-		} finally {
-			setIsConverting(false);
-		}
-	}, [globalMeasureSystem, recipe, onUpdate]);
-
-	useEffect(() => {
-		const hasData =
-			globalMeasureSystem === "metric"
-				? !!recipe.metricData
-				: !!recipe.imperialData;
-		if (!hasData && !isConverting) handleConvert();
-	}, [
-		globalMeasureSystem,
-		handleConvert,
-		isConverting,
-		recipe.imperialData,
-		recipe.metricData,
-	]);
+		return {
+			ingredients: recipe.ingredients,
+			instructions: recipe.instructions,
+		};
+	}, [recipe.ingredients, recipe.instructions]);
 
 	const findIngredientIndex = (ingredientName: string): number => {
 		const clean = ingredientName.trim().toLowerCase();
@@ -323,17 +276,6 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 
 	return (
 		<div className="max-w-4xl mx-auto animate-in fade-in duration-500 relative pb-20">
-			{isConverting && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-cream-50/80 backdrop-blur-sm">
-					<div className="bg-white p-8 rounded-3xl shadow-2xl border border-cream-200 flex flex-col items-center gap-4">
-						<Loader2 size={48} className="text-accent-orange animate-spin" />
-						<h3 className="text-xl font-serif font-bold text-cream-900">
-							{t.convertingUnits}
-						</h3>
-					</div>
-				</div>
-			)}
-
 			{(activeIngredientInfo || isLoadingInfo) && (
 				<div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
 					<div
@@ -435,12 +377,12 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 						<div className="flex gap-2 mb-2">
 							<span className="bg-accent-orange px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest flex items-center gap-1 shadow-sm">
 								<Scale size={12} />{" "}
-								{showOriginal
-									? t.original
-									: globalMeasureSystem === "metric"
-										? t.metric
-										: t.imperial}
-							</span>
+									{showOriginal
+										? t.original
+										: recipe.measureSystem === "metric"
+											? t.metric
+											: t.imperial}
+								</span>
 							<button
 								type="button"
 								onClick={() => setShowOriginal(!showOriginal)}

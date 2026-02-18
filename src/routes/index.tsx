@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChefHat, Globe, Scale } from "lucide-react";
+import { ChefHat, Settings as SettingsIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AddRecipe from "../components/AddRecipe.tsx";
 import RecipeDetail from "../components/RecipeDetail.tsx";
 import RecipeList from "../components/RecipeList.tsx";
+import Settings from "../components/Settings.tsx";
 import type { AppState, Language, MeasureSystem, Recipe } from "../types.ts";
 import { translations } from "../utils/i18n.ts";
 
@@ -20,10 +21,11 @@ function getInitialState(): AppState {
 	if (typeof window === "undefined") {
 		return {
 			recipes: [],
-			view: "list",
+			view: "settings",
 			selectedRecipeId: null,
-			language: "sv",
+			language: "en",
 			measureSystem: "metric",
+			preferencesConfigured: false,
 		};
 	}
 
@@ -36,6 +38,7 @@ function getInitialState(): AppState {
 	const savedSystem = localStorage.getItem(
 		SYSTEM_STORAGE_KEY,
 	) as MeasureSystem | null;
+	const preferencesConfigured = Boolean(savedLang && savedSystem);
 
 	let parsedRecipes: Recipe[] = [];
 	if (savedRecipes) {
@@ -49,10 +52,11 @@ function getInitialState(): AppState {
 
 	return {
 		recipes: parsedRecipes,
-		view: "list",
+		view: preferencesConfigured ? "list" : "settings",
 		selectedRecipeId: null,
-		language: savedLang || "sv",
+		language: savedLang || "en",
 		measureSystem: savedSystem || "metric",
+		preferencesConfigured,
 	};
 }
 
@@ -87,6 +91,9 @@ const RecipeListSkeleton = () => (
 function HomeComponent() {
 	const [state, setState] = useState<AppState>(getInitialState);
 	const [hydrated, setHydrated] = useState(false);
+	const viewBeforeSettingsRef = useRef<Exclude<AppState["view"], "settings">>(
+		"list",
+	);
 
 	useEffect(() => {
 		setHydrated(true);
@@ -103,12 +110,14 @@ function HomeComponent() {
 	}, [state.recipes]);
 
 	useEffect(() => {
+		if (!state.preferencesConfigured) return;
 		localStorage.setItem(LANG_STORAGE_KEY, state.language);
-	}, [state.language]);
+	}, [state.language, state.preferencesConfigured]);
 
 	useEffect(() => {
+		if (!state.preferencesConfigured) return;
 		localStorage.setItem(SYSTEM_STORAGE_KEY, state.measureSystem);
-	}, [state.measureSystem]);
+	}, [state.measureSystem, state.preferencesConfigured]);
 
 	const handleAddRecipe = (recipe: Recipe) => {
 		setState((prev) => ({
@@ -128,30 +137,42 @@ function HomeComponent() {
 		}));
 	};
 
-	const handleUpdateRecipe = (updatedRecipe: Recipe) => {
+	const openSettings = () => {
+		setState((prev) => {
+			if (prev.view !== "settings") {
+				viewBeforeSettingsRef.current = prev.view;
+			}
+			return {
+				...prev,
+				view: "settings",
+			};
+		});
+	};
+
+	const handleSaveSettings = (
+		language: Language,
+		measureSystem: MeasureSystem,
+	) => {
+		setState((prev) => {
+			const wasConfigured = prev.preferencesConfigured;
+			return {
+				...prev,
+				language,
+				measureSystem,
+				preferencesConfigured: true,
+				view: wasConfigured ? viewBeforeSettingsRef.current : "list",
+			};
+		});
+	};
+
+	const handleCancelSettings = () => {
 		setState((prev) => ({
 			...prev,
-			recipes: prev.recipes.map((r) =>
-				r.id === updatedRecipe.id ? updatedRecipe : r,
-			),
+			view: viewBeforeSettingsRef.current,
 		}));
 	};
 
 	const t = translations[state.language];
-
-	const toggleLanguage = () => {
-		setState((prev) => ({
-			...prev,
-			language: prev.language === "en" ? "sv" : "en",
-		}));
-	};
-
-	const toggleMeasureSystem = () => {
-		setState((prev) => ({
-			...prev,
-			measureSystem: prev.measureSystem === "metric" ? "imperial" : "metric",
-		}));
-	};
 
 	return (
 		<div className="min-h-screen bg-[#FAF6EF] text-[#5D4037] pb-20">
@@ -162,7 +183,7 @@ function HomeComponent() {
 						onClick={() =>
 							setState((prev) => ({
 								...prev,
-								view: "list",
+								view: prev.preferencesConfigured ? "list" : "settings",
 								selectedRecipeId: null,
 							}))
 						}
@@ -178,32 +199,21 @@ function HomeComponent() {
 						</div>
 					</div>
 
-					<div className="flex items-center gap-3">
+					{state.preferencesConfigured && (
 						<button
 							type="button"
-							onClick={toggleMeasureSystem}
-							title={t.measureSystem}
+							onClick={openSettings}
 							className="flex items-center gap-2 px-4 py-2 rounded-full bg-cream-200 hover:bg-cream-300 transition-all text-sm font-medium border border-cream-300 shadow-sm"
 						>
-							<Scale size={16} className="text-accent-orange" />
-							<span>
-								{state.measureSystem === "metric" ? t.metric : t.imperial}
-							</span>
+							<SettingsIcon size={16} />
+							<span>{t.settings}</span>
 						</button>
-						<button
-							type="button"
-							onClick={toggleLanguage}
-							className="flex items-center gap-2 px-4 py-2 rounded-full bg-cream-200 hover:bg-cream-300 transition-all text-sm font-medium border border-cream-300 shadow-sm"
-						>
-							<Globe size={16} />
-							<span>{state.language.toUpperCase()}</span>
-						</button>
-					</div>
+					)}
 				</div>
 			</header>
 
 			<main className="max-w-6xl mx-auto px-6">
-				{!hydrated && <RecipeListSkeleton />}
+				{!hydrated && state.view !== "settings" && <RecipeListSkeleton />}
 				{hydrated && state.view === "list" && (
 					<RecipeList
 						recipes={state.recipes}
@@ -232,7 +242,6 @@ function HomeComponent() {
 				{state.view === "detail" && state.selectedRecipeId && (
 					<RecipeDetail
 						recipe={state.recipes.find((r) => r.id === state.selectedRecipeId)!}
-						globalMeasureSystem={state.measureSystem}
 						onBack={() =>
 							setState((prev) => ({
 								...prev,
@@ -241,8 +250,20 @@ function HomeComponent() {
 							}))
 						}
 						onDelete={handleDeleteRecipe}
-						onUpdate={handleUpdateRecipe}
 						t={t}
+					/>
+				)}
+
+				{state.view === "settings" && (
+					<Settings
+						t={t}
+						initialLanguage={state.language}
+						initialMeasureSystem={state.measureSystem}
+						isFirstTime={!state.preferencesConfigured}
+						onSave={handleSaveSettings}
+						onCancel={
+							state.preferencesConfigured ? handleCancelSettings : undefined
+						}
 					/>
 				)}
 			</main>

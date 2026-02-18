@@ -1,4 +1,4 @@
-import type { Language, MeasureSystem, Recipe, RecipeData } from "../types.ts";
+import type { Language, MeasureSystem, Recipe } from "../types.ts";
 
 export type ExtractRecipeErrorCode = "PAGE_NOT_SUPPORTED" | "EXTRACTION_FAILED";
 
@@ -52,30 +52,6 @@ export const extractRecipe = async (data: {
 			recipe: null,
 			errorCode: "EXTRACTION_FAILED",
 		} as ExtractRecipeResult;
-	}
-};
-
-export const convertRecipeUnits = async (data: {
-	recipe: Recipe;
-	targetSystem: MeasureSystem;
-}) => {
-	try {
-		const response = await fetch("/api/convert-recipe-units", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(data),
-		});
-
-		if (!response.ok) {
-			throw new Error("Failed to convert recipe units");
-		}
-
-		return (await response.json()) as RecipeData | null;
-	} catch (error) {
-		console.error("Conversion Error:", error);
-		return null;
 	}
 };
 
