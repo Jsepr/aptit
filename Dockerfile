@@ -1,5 +1,5 @@
-# Use the official Playwright image which includes all browser dependencies
-FROM mcr.microsoft.com/playwright:v1.58.2-noble
+# Use official Node image
+FROM node:22-slim
 
 WORKDIR /app
 
@@ -9,8 +9,8 @@ COPY package.json package-lock.json ./
 # Create placeholder env file for build
 RUN echo "GEMINI_API_KEY=PLACEHOLDER" >> ./.env
 
-# Install dependencies (Playwright browsers are already installed in the base image)
-RUN npm install
+# Install dependencies
+RUN npm ci
 
 # Copy the rest of the application
 COPY . ./
