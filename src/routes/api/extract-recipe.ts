@@ -59,7 +59,6 @@ const recipeExtractSchema = z.object({
 	instructions: z.array(instructionSchema),
 	time: z.string().optional(),
 	servings: z.string(),
-	imageUrl: z.string(),
 	recipeType: z.enum(["food", "baking"]),
 });
 
@@ -106,14 +105,6 @@ const TIME_RULES = [
 	'Handle Swedish time prefixes like "Under" (Under 45 min -> PT45M).',
 ];
 
-const IMAGE_RULES = [
-	"Set imageUrl to the best recipe hero image URL from the source.",
-	"Prefer, in order: schema.org Recipe image, og:image, twitter:image.",
-	"imageUrl must be an absolute URL (https://...).",
-	"Do not use logos, icons, sprites, placeholders, or ad/tracker images.",
-	"If no credible recipe image is available, return an empty string.",
-];
-
 const asBullets = (items: string[]) =>
 	items.map((item) => `  - ${item.replace(/\n/g, "\n    ")}`).join("\n");
 
@@ -144,7 +135,6 @@ const buildSystemInstruction = ({
 		`7. For each instruction step's "ingredients":\n${asBullets(STEP_INGREDIENT_RULES)}`,
 		`8. ALWAYS include the "recipeType" field in the response.\n${asBullets(RECIPE_TYPE_RULES)}`,
 		`9. Time extraction:\n${asBullets(TIME_RULES)}`,
-		`10. Image extraction:\n${asBullets(IMAGE_RULES)}`,
 		"",
 		"REQUIRED JSON SCHEMA FOR RESPONSE:",
 		JSON.stringify(recipeExtractJsonSchema, null, 2),
@@ -168,22 +158,8 @@ const buildGroundedPrompt = ({
 		`Target measurement system: ${targetSystem}`,
 		"",
 		"Use only information from this URL retrieval. Do not use related or similar pages.",
-		"Return a concise extraction containing title, ingredients, steps, servings/yield, time, and image URL candidates from the source.",
+		"Return a concise extraction containing title, ingredients, steps, servings/yield, and time from the source.",
 	].join("\n");
-
-const toResult = (
-	parsedData: Record<string, unknown>,
-	url: string,
-	language: Language,
-	targetSystem: MeasureSystem,
-) =>
-	({
-	...parsedData,
-	sourceUrl: url,
-	createdAt: Date.now(),
-	language: language,
-	measureSystem: targetSystem,
-}) as Partial<Recipe>;
 
 const pageNotSupportedResponse = () =>
 	new Response(
@@ -305,7 +281,13 @@ export const Route = createFileRoute("/api/extract-recipe")({
 						const validatedGrounded = recipeExtractSchema.safeParse(parsedGrounded);
 						if (validatedGrounded.success) {
 							return Response.json(
-								toResult(validatedGrounded.data, url, language, targetSystem),
+								{
+									...validatedGrounded.data,
+									sourceUrl: url,
+									createdAt: Date.now(),
+									language,
+									measureSystem: targetSystem,
+								} as Partial<Recipe>,
 							);
 						}
 					}

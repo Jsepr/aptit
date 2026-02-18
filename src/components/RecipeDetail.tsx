@@ -21,14 +21,11 @@ import { useMemo, useState } from "react";
 import type { Recipe, StepIngredient } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
+import { getRecipeArtworkDataUri } from "../utils/recipeArtwork.ts";
 import {
 	resolveStepIngredient,
 	splitIngredientAmountAndName,
 } from "../utils/stepIngredients.ts";
-
-const IMAGE_PLACEHOLDER_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(
-	'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="100%" height="100%" fill="#F6F1E7"/></svg>',
-)}`;
 
 interface RecipeDetailProps {
 	recipe: Recipe;
@@ -269,15 +266,15 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 			<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-cream-200">
 				<div className="relative h-64 md:h-80">
 					<img
-						src={recipe.imageUrl || IMAGE_PLACEHOLDER_DATA_URI}
+						src={
+							getRecipeArtworkDataUri({
+								id: recipe.id,
+								title: recipe.title,
+								recipeType: recipe.recipeType,
+							})
+						}
 						alt={recipe.title}
 						className="w-full h-full object-cover"
-						onError={(e) => {
-							const img = e.currentTarget;
-							if (img.dataset.fallbackApplied === "1") return;
-							img.dataset.fallbackApplied = "1";
-							img.src = IMAGE_PLACEHOLDER_DATA_URI;
-						}}
 					/>
 					<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 					<div className="absolute bottom-0 left-0 p-8 text-white w-full">

@@ -1,12 +1,9 @@
-import { ChevronRight, Clock, Palette, Users, Utensils } from "lucide-react";
+import { ChevronRight, Clock, Users, Utensils } from "lucide-react";
 import type React from "react";
 import type { Recipe } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
-
-const IMAGE_PLACEHOLDER_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(
-	'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="100%" height="100%" fill="#F6F1E7"/></svg>',
-)}`;
+import { getRecipeArtworkDataUri } from "../utils/recipeArtwork.ts";
 
 interface RecipeListProps {
 	recipes: Recipe[];
@@ -64,26 +61,17 @@ const RecipeList: React.FC<RecipeListProps> = ({
 							className="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-cream-200 overflow-hidden cursor-pointer transition-all duration-300 group flex flex-col h-full"
 						>
 							<div className="h-48 overflow-hidden bg-cream-100 relative">
-								{recipe.imageUrl ? (
-									<img
-										src={recipe.imageUrl}
-										alt={recipe.title}
-										className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-										onError={(e) => {
-											const img = e.currentTarget;
-											if (img.dataset.fallbackApplied === "1") return;
-											img.dataset.fallbackApplied = "1";
-											img.src = IMAGE_PLACEHOLDER_DATA_URI;
-										}}
-									/>
-								) : (
-									<div className="w-full h-full flex flex-col items-center justify-center bg-cream-50 text-cream-200">
-										<Palette size={48} />
-										<span className="text-[10px] uppercase tracking-widest mt-2 font-bold">
-											{t.noImage}
-										</span>
-									</div>
-								)}
+								<img
+									src={
+										getRecipeArtworkDataUri({
+											id: recipe.id,
+											title: recipe.title,
+											recipeType: recipe.recipeType,
+										})
+									}
+									alt={recipe.title}
+									className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+								/>
 
 								<div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 							</div>

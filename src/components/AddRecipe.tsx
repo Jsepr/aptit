@@ -79,7 +79,6 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 					time: extractedData.time,
 					servings: extractedData.servings,
 					sourceUrl: url,
-					imageUrl: extractedData.imageUrl,
 					createdAt: Date.now(),
 					language: language,
 					measureSystem: measureSystem,

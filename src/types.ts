@@ -29,7 +29,6 @@ export interface Recipe {
 	servings?: string;
 	baseServingsCount: number;
 	sourceUrl: string;
-	imageUrl?: string;
 	createdAt: number;
 	language: "en" | "sv";
 	measureSystem: MeasureSystem;
