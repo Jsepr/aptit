@@ -9,19 +9,15 @@ import {
 	ExternalLink,
 	Eye,
 	FileText,
-	HelpCircle,
-	Loader2,
 	Minus,
 	Plus,
 	Scale,
 	Sparkles,
 	Trash2,
 	Users,
-	X,
 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
-import { getIngredientExplanation } from "../services/geminiService.ts";
 import type { Recipe, StepIngredient } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
@@ -35,12 +31,6 @@ interface RecipeDetailProps {
 	onBack: () => void;
 	onDelete: (id: string) => void;
 	t: Translation;
-}
-
-interface IngredientInfo {
-	name: string;
-	description: string;
-	substitutes: string[];
 }
 
 const RecipeDetail: React.FC<RecipeDetailProps> = ({
@@ -63,10 +53,6 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 		new Set([0]),
 	);
 	const [showOriginal, setShowOriginal] = useState(false);
-
-	const [activeIngredientInfo, setActiveIngredientInfo] =
-		useState<IngredientInfo | null>(null);
-	const [isLoadingInfo, setIsLoadingInfo] = useState(false);
 
 	const scaleMultiplier = multiplier / baseMultiplier;
 
@@ -245,23 +231,6 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 		setExpandedIngredients(next);
 	};
 
-	const handleFetchIngredientInfo = async (
-		ingredient: string,
-		e: React.MouseEvent,
-	) => {
-		e.stopPropagation();
-		setIsLoadingInfo(true);
-		try {
-			const result = await getIngredientExplanation({
-				ingredient,
-				language: recipe.language,
-			});
-			if (result) setActiveIngredientInfo({ name: ingredient, ...result });
-		} finally {
-			setIsLoadingInfo(false);
-		}
-	};
-
 	const adjustMultiplier = (delta: number) => {
 		setMultiplier((prev) => {
 			const newVal = prev + delta;
@@ -276,69 +245,6 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 
 	return (
 		<div className="max-w-4xl mx-auto animate-in fade-in duration-500 relative pb-20">
-			{(activeIngredientInfo || isLoadingInfo) && (
-				<div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-					<div
-						className="absolute inset-0 bg-cream-900/40 backdrop-blur-sm"
-						onClick={() => setActiveIngredientInfo(null)}
-					/>
-					<div className="bg-white rounded-3xl shadow-2xl max-w-md w-full relative z-[120] overflow-hidden p-8 animate-in zoom-in-95">
-						<div className="flex justify-between mb-4">
-							<h3 className="text-2xl font-serif font-bold">
-								{isLoadingInfo ? t.loadingInfo : activeIngredientInfo?.name}
-							</h3>
-							<button
-								type="button"
-								onClick={() => setActiveIngredientInfo(null)}
-								className="p-2 hover:bg-cream-100 rounded-full"
-							>
-								<X size={20} />
-							</button>
-						</div>
-						{isLoadingInfo ? (
-							<div className="py-12 flex flex-col items-center gap-4">
-								<Loader2
-									className="animate-spin text-accent-orange"
-									size={32}
-								/>
-							</div>
-						) : (
-							<>
-								<p className="mb-6 leading-relaxed">
-									{activeIngredientInfo?.description}
-								</p>
-								{activeIngredientInfo?.substitutes &&
-									activeIngredientInfo.substitutes.length > 0 && (
-										<div>
-											<h5 className="font-bold mb-3 flex items-center gap-2 text-accent-orange">
-												<Sparkles size={16} /> {t.substitutes}
-											</h5>
-											<ul className="space-y-2">
-												{activeIngredientInfo.substitutes.map((s, i) => (
-													<li
-														key={i}
-														className="text-sm flex items-center gap-2"
-													>
-														<div className="w-1.5 h-1.5 rounded-full bg-accent-soft" />
-														{s}
-													</li>
-												))}
-											</ul>
-										</div>
-									)}
-								<button
-									type="button"
-									onClick={() => setActiveIngredientInfo(null)}
-									className="w-full mt-8 py-3 bg-cream-900 text-white rounded-xl font-bold hover:bg-black transition-colors"
-								>
-									{t.close}
-								</button>
-							</>
-						)}
-					</div>
-				</div>
-			)}
-
 			<div className="flex justify-between items-center mb-6">
 				<button
 					type="button"
@@ -488,15 +394,6 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 										<span className="text-sm font-medium flex-grow">
 											{showOriginal ? ing : scaleString(ing)}
 										</span>
-										{!showOriginal && (
-											<button
-												type="button"
-												onClick={(e) => handleFetchIngredientInfo(ing, e)}
-												className="opacity-0 group-hover:opacity-100 p-1 text-accent-soft hover:text-accent-orange transition-opacity"
-											>
-												<HelpCircle size={18} />
-											</button>
-										)}
 									</li>
 								))}
 							</ul>

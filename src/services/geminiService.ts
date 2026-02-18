@@ -54,30 +54,3 @@ export const extractRecipe = async (data: {
 		} as ExtractRecipeResult;
 	}
 };
-
-export const getIngredientExplanation = async (data: {
-	ingredient: string;
-	language: Language;
-}) => {
-	try {
-		const response = await fetch("/api/get-ingredient-explanation", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(data),
-		});
-
-		if (!response.ok) {
-			throw new Error("Failed to get ingredient explanation");
-		}
-
-		return (await response.json()) as {
-			description: string;
-			substitutes: string[];
-		} | null;
-	} catch (error) {
-		console.error("Ingredient Explanation Error:", error);
-		return null;
-	}
-};

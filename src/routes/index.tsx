@@ -18,45 +18,13 @@ const LANG_STORAGE_KEY = "aptit_lang_v1";
 const SYSTEM_STORAGE_KEY = "aptit_system_v1";
 
 function getInitialState(): AppState {
-	if (typeof window === "undefined") {
-		return {
-			recipes: [],
-			view: "settings",
-			selectedRecipeId: null,
-			language: "en",
-			measureSystem: "metric",
-			preferencesConfigured: false,
-		};
-	}
-
-	for (const key of OLD_RECIPE_STORAGE_KEYS) {
-		localStorage.removeItem(key);
-	}
-
-	const savedRecipes = localStorage.getItem(LOCAL_STORAGE_KEY);
-	const savedLang = localStorage.getItem(LANG_STORAGE_KEY) as Language | null;
-	const savedSystem = localStorage.getItem(
-		SYSTEM_STORAGE_KEY,
-	) as MeasureSystem | null;
-	const preferencesConfigured = Boolean(savedLang && savedSystem);
-
-	let parsedRecipes: Recipe[] = [];
-	if (savedRecipes) {
-		try {
-			const parsed = JSON.parse(savedRecipes);
-			parsedRecipes = Array.isArray(parsed) ? (parsed as Recipe[]) : [];
-		} catch {
-			localStorage.removeItem(LOCAL_STORAGE_KEY);
-		}
-	}
-
 	return {
-		recipes: parsedRecipes,
-		view: preferencesConfigured ? "list" : "settings",
+		recipes: [],
+		view: "list",
 		selectedRecipeId: null,
-		language: savedLang || "en",
-		measureSystem: savedSystem || "metric",
-		preferencesConfigured,
+		language: "en",
+		measureSystem: "metric",
+		preferencesConfigured: false,
 	};
 }
 
@@ -96,6 +64,35 @@ function HomeComponent() {
 	);
 
 	useEffect(() => {
+		for (const key of OLD_RECIPE_STORAGE_KEYS) {
+			localStorage.removeItem(key);
+		}
+
+		const savedRecipes = localStorage.getItem(LOCAL_STORAGE_KEY);
+		const savedLang = localStorage.getItem(LANG_STORAGE_KEY) as Language | null;
+		const savedSystem = localStorage.getItem(
+			SYSTEM_STORAGE_KEY,
+		) as MeasureSystem | null;
+		const preferencesConfigured = Boolean(savedLang && savedSystem);
+
+		let parsedRecipes: Recipe[] = [];
+		if (savedRecipes) {
+			try {
+				const parsed = JSON.parse(savedRecipes);
+				parsedRecipes = Array.isArray(parsed) ? (parsed as Recipe[]) : [];
+			} catch {
+				localStorage.removeItem(LOCAL_STORAGE_KEY);
+			}
+		}
+
+		setState((prev) => ({
+			...prev,
+			recipes: parsedRecipes,
+			view: preferencesConfigured ? "list" : "settings",
+			language: savedLang || "en",
+			measureSystem: savedSystem || "metric",
+			preferencesConfigured,
+		}));
 		setHydrated(true);
 	}, []);
 
@@ -199,7 +196,7 @@ function HomeComponent() {
 						</div>
 					</div>
 
-					{state.preferencesConfigured && (
+					{hydrated && state.preferencesConfigured && (
 						<button
 							type="button"
 							onClick={openSettings}
@@ -213,7 +210,7 @@ function HomeComponent() {
 			</header>
 
 			<main className="max-w-6xl mx-auto px-6">
-				{!hydrated && state.view !== "settings" && <RecipeListSkeleton />}
+				{!hydrated && <RecipeListSkeleton />}
 				{hydrated && state.view === "list" && (
 					<RecipeList
 						recipes={state.recipes}
