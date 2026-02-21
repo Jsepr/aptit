@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ChevronRight, Clock, Users, Utensils } from "lucide-react";
 import type React from "react";
 import type { Recipe } from "../types.ts";
@@ -7,30 +8,22 @@ import { getRecipeArtworkDataUri } from "../utils/recipeArtwork.ts";
 
 interface RecipeListProps {
 	recipes: Recipe[];
-	onSelect: (id: string) => void;
-	onAdd: () => void;
 	t: Translation;
 }
 
-const RecipeList: React.FC<RecipeListProps> = ({
-	recipes,
-	onSelect,
-	onAdd,
-	t,
-}) => {
+const RecipeList: React.FC<RecipeListProps> = ({ recipes, t }) => {
 	return (
 		<div className="space-y-6">
 			<div className="flex justify-between items-center">
 				<h2 className="text-2xl font-serif font-bold text-cream-900">
 					{t.myRecipes}
 				</h2>
-				<button
-					type="button"
-					onClick={onAdd}
+				<Link
+					to="/add"
 					className="bg-accent-orange hover:bg-orange-600 text-white px-5 py-2.5 rounded-full font-medium shadow-md transition-all flex items-center gap-2 transform hover:scale-105"
 				>
 					<span>+</span> {t.addRecipe}
-				</button>
+				</Link>
 			</div>
 
 			{recipes.length === 0 ? (
@@ -43,32 +36,29 @@ const RecipeList: React.FC<RecipeListProps> = ({
 					<p className="text-lg text-cream-900 mb-6 font-medium">
 						{t.noRecipes}
 					</p>
-					<button
-						type="button"
-						onClick={onAdd}
-						className="text-accent-orange font-semibold hover:underline bg-accent-orange/10 px-6 py-2 rounded-full hover:bg-accent-orange/20 transition-colors"
+					<Link
+						to="/add"
+						className="inline-block text-accent-orange font-semibold hover:underline bg-accent-orange/10 px-6 py-2 rounded-full hover:bg-accent-orange/20 transition-colors"
 					>
 						{t.addRecipe}
-					</button>
+					</Link>
 				</div>
 			) : (
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{recipes.map((recipe) => (
-						<button
-							type="button"
+						<Link
+							to="/recipe/$recipeId"
+							params={{ recipeId: recipe.id }}
 							key={recipe.id}
-							onClick={() => onSelect(recipe.id)}
-							className="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-cream-200 overflow-hidden cursor-pointer transition-all duration-300 group flex flex-col h-full"
+							className="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-cream-200 overflow-hidden cursor-pointer transition-all duration-300 group flex flex-col h-full text-left"
 						>
 							<div className="h-48 overflow-hidden bg-cream-100 relative">
 								<img
-									src={
-										getRecipeArtworkDataUri({
-											id: recipe.id,
-											title: recipe.title,
-											recipeType: recipe.recipeType,
-										})
-									}
+									src={getRecipeArtworkDataUri({
+										id: recipe.id,
+										title: recipe.title,
+										recipeType: recipe.recipeType,
+									})}
 									alt={recipe.title}
 									className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
 								/>
@@ -107,7 +97,7 @@ const RecipeList: React.FC<RecipeListProps> = ({
 									/>
 								</div>
 							</div>
-						</button>
+						</Link>
 					))}
 				</div>
 			)}

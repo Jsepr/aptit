@@ -36,12 +36,3 @@ export interface Recipe {
 }
 
 export type Language = "en" | "sv";
-
-export interface AppState {
-	recipes: Recipe[];
-	view: "list" | "add" | "detail" | "settings";
-	selectedRecipeId: string | null;
-	language: Language;
-	measureSystem: MeasureSystem;
-	preferencesConfigured: boolean;
-}

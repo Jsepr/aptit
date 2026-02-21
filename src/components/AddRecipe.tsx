@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import {
 	AlertCircle,
 	ArrowLeft,
@@ -15,7 +16,6 @@ import { normalizeInstruction } from "../utils/stepIngredients.ts";
 
 interface AddRecipeProps {
 	onSave: (recipe: Recipe) => void;
-	onCancel: () => void;
 	t: Translation;
 	language: Language;
 	measureSystem: MeasureSystem;
@@ -23,7 +23,6 @@ interface AddRecipeProps {
 
 const AddRecipe: React.FC<AddRecipeProps> = ({
 	onSave,
-	onCancel,
 	t,
 	language,
 	measureSystem,
@@ -101,14 +100,13 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 
 	return (
 		<div className="max-w-2xl mx-auto">
-			<button
-				type="button"
-				onClick={onCancel}
-				className="mb-6 flex items-center text-gray-500 hover:text-cream-900 transition-colors"
+			<Link
+				to="/"
+				className="inline-flex mb-6 items-center text-gray-500 hover:text-cream-900 transition-colors"
 			>
 				<ArrowLeft size={18} className="mr-1" />
 				{t.back}
-			</button>
+			</Link>
 
 			<div className="bg-white rounded-3xl shadow-lg border border-cream-200 p-8 md:p-12">
 				<h2 className="text-3xl font-serif font-bold text-cream-900 mb-6">

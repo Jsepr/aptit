@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import {
 	ArrowLeft,
 	Check,
@@ -29,17 +30,11 @@ import {
 
 interface RecipeDetailProps {
 	recipe: Recipe;
-	onBack: () => void;
 	onDelete: (id: string) => void;
 	t: Translation;
 }
 
-const RecipeDetail: React.FC<RecipeDetailProps> = ({
-	recipe,
-	onBack,
-	onDelete,
-	t,
-}) => {
+const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 	const baseMultiplier =
 		recipe.recipeType === "baking" ? 1 : recipe.baseServingsCount;
 	const [multiplier, setMultiplier] = useState(baseMultiplier);
@@ -247,13 +242,12 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 	return (
 		<div className="max-w-4xl mx-auto animate-in fade-in duration-500 relative pb-20">
 			<div className="flex justify-between items-center mb-6">
-				<button
-					type="button"
-					onClick={onBack}
-					className="flex items-center text-gray-600 hover:text-cream-900 font-medium transition-colors"
+				<Link
+					to="/"
+					className="inline-flex items-center text-gray-600 hover:text-cream-900 font-medium transition-colors"
 				>
 					<ArrowLeft size={20} className="mr-2" /> {t.back}
-				</button>
+				</Link>
 				<button
 					type="button"
 					onClick={() => window.confirm(t.deleteConfirm) && onDelete(recipe.id)}
@@ -266,13 +260,11 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 			<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-cream-200">
 				<div className="relative h-64 md:h-80">
 					<img
-						src={
-							getRecipeArtworkDataUri({
-								id: recipe.id,
-								title: recipe.title,
-								recipeType: recipe.recipeType,
-							})
-						}
+						src={getRecipeArtworkDataUri({
+							id: recipe.id,
+							title: recipe.title,
+							recipeType: recipe.recipeType,
+						})}
 						alt={recipe.title}
 						className="w-full h-full object-cover"
 					/>
@@ -281,12 +273,12 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({
 						<div className="flex gap-2 mb-2">
 							<span className="bg-accent-orange px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest flex items-center gap-1 shadow-sm">
 								<Scale size={12} />{" "}
-									{showOriginal
-										? t.original
-										: recipe.measureSystem === "metric"
-											? t.metric
-											: t.imperial}
-								</span>
+								{showOriginal
+									? t.original
+									: recipe.measureSystem === "metric"
+										? t.metric
+										: t.imperial}
+							</span>
 							<button
 								type="button"
 								onClick={() => setShowOriginal(!showOriginal)}
