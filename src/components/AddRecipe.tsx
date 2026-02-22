@@ -10,7 +10,12 @@ import type React from "react";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { extractRecipe } from "../services/geminiService.ts";
-import type { Language, MeasureSystem, Recipe } from "../types.ts";
+import {
+	type Language,
+	type MeasureSystem,
+	type Recipe,
+	getFlatIngredients,
+} from "../types.ts";
 import type { Translation } from "../utils/i18n.ts";
 import { normalizeInstruction } from "../utils/stepIngredients.ts";
 
@@ -50,19 +55,21 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 			if (extractedData) {
 				const ingredients = extractedData.ingredients || [];
 				const originalIngredients = extractedData.originalIngredients || [];
+				const flatIngredients = getFlatIngredients(ingredients);
+				const flatOriginalIngredients = getFlatIngredients(originalIngredients);
 				const originalInstructionsRaw =
 					extractedData.originalInstructions || [];
 				const baseServingsCount = extractedData.baseServingsCount || 1;
 
 				const instructions = extractedData.instructions
 					? extractedData.instructions.map((inst: unknown) =>
-							normalizeInstruction(inst, ingredients),
+							normalizeInstruction(inst, flatIngredients),
 						)
 					: [];
 
 				const originalInstructions = originalInstructionsRaw
 					? originalInstructionsRaw.map((inst: unknown) =>
-							normalizeInstruction(inst, originalIngredients),
+							normalizeInstruction(inst, flatOriginalIngredients),
 						)
 					: [];
 

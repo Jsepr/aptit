@@ -20,6 +20,10 @@ import {
 import type React from "react";
 import { useMemo, useState } from "react";
 import type { Ingredient, Recipe } from "../types.ts";
+import {
+	getFlatIngredients,
+	getIngredientSections,
+} from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
 import { getRecipeArtworkDataUri } from "../utils/recipeArtwork.ts";
@@ -96,7 +100,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 
 	const currentData = useMemo(() => {
 		return {
-			ingredients: recipe.ingredients,
+			flatIngredients: getFlatIngredients(recipe.ingredients),
 			instructions: recipe.instructions,
 		};
 	}, [recipe.ingredients, recipe.instructions]);
@@ -104,13 +108,18 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 	const findIngredientIndex = (ingredientName: string): number => {
 		const match = findMatchingTopIngredient(
 			ingredientName,
-			currentData.ingredients,
+			currentData.flatIngredients,
 		);
-		return match ? currentData.ingredients.indexOf(match) : -1;
+		return match
+			? currentData.flatIngredients.indexOf(match)
+			: -1;
 	};
 
 	const formatStepIngredient = (ingredient: Ingredient): string => {
-		const resolved = resolveStepIngredient(ingredient, currentData.ingredients);
+		const resolved = resolveStepIngredient(
+			ingredient,
+			currentData.flatIngredients,
+		);
 		return formatIngredientLine(resolved, true);
 	};
 
@@ -121,7 +130,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 		else next.delete(index);
 		setCheckedIngredients(next);
 
-		const masterIng = currentData.ingredients[index];
+		const masterIng = currentData.flatIngredients[index];
 		const masterName = masterIng.name.toLowerCase();
 		const nextStepChecked = { ...stepCheckedIngredients };
 		const nextCompletedSteps = new Set(completedSteps);
@@ -131,7 +140,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 			step.ingredients.forEach((si, iIdx) => {
 				const stepIngredientName = resolveStepIngredient(
 					si,
-					currentData.ingredients,
+					currentData.flatIngredients,
 				).name.toLowerCase();
 				if (
 					stepIngredientName.includes(masterName) ||
@@ -200,7 +209,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 			step.ingredients.forEach((ing, iIdx) => {
 				stepSet.add(iIdx);
 				const mIdx = findIngredientIndex(
-					resolveStepIngredient(ing, currentData.ingredients).name,
+					resolveStepIngredient(ing, currentData.flatIngredients).name,
 				);
 				if (mIdx !== -1) nextMaster.add(mIdx);
 			});
@@ -211,7 +220,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 			nextStepChecked[stepIdx] = stepSet;
 			step.ingredients.forEach((ing) => {
 				const mIdx = findIngredientIndex(
-					resolveStepIngredient(ing, currentData.ingredients).name,
+					resolveStepIngredient(ing, currentData.flatIngredients).name,
 				);
 				if (mIdx !== -1) nextMaster.delete(mIdx);
 			});
@@ -235,10 +244,11 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 		});
 	};
 
-	const displayedIngredients =
-		showOriginal && recipe.originalIngredients
+	const displayedSections = getIngredientSections(
+		showOriginal && recipe.originalIngredients?.length
 			? recipe.originalIngredients
-			: currentData.ingredients;
+			: recipe.ingredients,
+	);
 
 	return (
 		<div className="max-w-4xl mx-auto animate-in fade-in duration-500 relative pb-20">
@@ -368,26 +378,45 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 								<span className="w-1.5 h-6 bg-accent-orange rounded-full" />{" "}
 								{t.ingredients}
 							</h3>
-							<ul className="space-y-3">
-								{displayedIngredients.map((ing, idx) => (
-									<li
-										key={idx}
-										onClick={() => toggleMasterIngredient(idx)}
-										className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer border border-transparent group transition-all ${checkedIngredients.has(idx) ? "bg-cream-50 text-gray-400 line-through" : "hover:bg-cream-50 hover:border-cream-100"}`}
-									>
-										<div className="mt-0.5">
-											{checkedIngredients.has(idx) ? (
-												<CheckCircle size={20} className="text-green-500" />
-											) : (
-												<Circle size={20} className="text-cream-300" />
-											)}
+							<div className="space-y-6">
+								{displayedSections.map((section, sectionIdx) => {
+									let globalOffset = 0;
+									for (let i = 0; i < sectionIdx; i++)
+										globalOffset += displayedSections[i].ingredients.length;
+									return (
+										<div key={sectionIdx}>
+											{section.title ? (
+												<h4 className="text-sm font-bold text-cream-700 uppercase tracking-widest mb-3">
+													{section.title}
+												</h4>
+											) : null}
+											<ul className="space-y-3">
+												{section.ingredients.map((ing, ingIdx) => {
+													const globalIdx = globalOffset + ingIdx;
+													return (
+														<li
+															key={globalIdx}
+															onClick={() => toggleMasterIngredient(globalIdx)}
+															className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer border border-transparent group transition-all ${checkedIngredients.has(globalIdx) ? "bg-cream-50 text-gray-400 line-through" : "hover:bg-cream-50 hover:border-cream-100"}`}
+														>
+															<div className="mt-0.5">
+																{checkedIngredients.has(globalIdx) ? (
+																	<CheckCircle size={20} className="text-green-500" />
+																) : (
+																	<Circle size={20} className="text-cream-300" />
+																)}
+															</div>
+															<span className="text-sm font-medium flex-grow">
+																{formatIngredientLine(ing, !showOriginal)}
+															</span>
+														</li>
+													);
+												})}
+											</ul>
 										</div>
-										<span className="text-sm font-medium flex-grow">
-											{formatIngredientLine(ing, !showOriginal)}
-										</span>
-									</li>
-								))}
-							</ul>
+									);
+								})}
+							</div>
 						</div>
 
 						<div className="lg:col-span-7">
@@ -461,7 +490,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 																			iIdx,
 																			resolveStepIngredient(
 																				ing,
-																				currentData.ingredients,
+																				currentData.flatIngredients,
 																			).name,
 																			e,
 																		)
