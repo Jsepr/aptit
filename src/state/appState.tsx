@@ -3,10 +3,21 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Language, MeasureSystem, Recipe } from "../types.ts";
 import { type Translation, translations } from "../utils/i18n.ts";
 
-const LOCAL_STORAGE_KEY = "aptit_recipes_v3";
-const OLD_RECIPE_STORAGE_KEYS = ["aptit_recipes_v1", "aptit_recipes_v2"];
-const LANG_STORAGE_KEY = "aptit_lang_v1";
-const SYSTEM_STORAGE_KEY = "aptit_system_v1";
+const LOCAL_STORAGE_KEY = "aptit_recipes_v4";
+const LANG_STORAGE_KEY = "aptit_lang_v4";
+const SYSTEM_STORAGE_KEY = "aptit_system_v4";
+
+const OLD_STORAGE_KEYS = [
+	"aptit_recipes_v1",
+	"aptit_recipes_v2",
+	"aptit_recipes_v3",
+	"aptit_lang_v1",
+	"aptit_lang_v2",
+	"aptit_lang_v3",
+	"aptit_system_v1",
+	"aptit_system_v2",
+	"aptit_system_v3",
+];
 
 interface AppStateContextValue {
 	recipes: Recipe[];
@@ -30,7 +41,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 	const [hydrated, setHydrated] = useState(false);
 
 	useEffect(() => {
-		for (const key of OLD_RECIPE_STORAGE_KEYS) {
+		for (const key of OLD_STORAGE_KEYS) {
 			localStorage.removeItem(key);
 		}
 

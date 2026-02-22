@@ -1,7 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import type { Language, MeasureSystem, Recipe } from "../../types";
+import {
+	type Language,
+	type MeasureSystem,
+	type Recipe,
+	recipeExtractSchema,
+	ingredientSchema,
+} from "../../types";
 
 const parseJson = (text: string) => {
 	const tryParseObject = (candidate: string) => {
@@ -24,7 +30,10 @@ const parseJson = (text: string) => {
 		return value.substring(firstBrace, lastBrace + 1);
 	};
 
-	const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+	const cleaned = text
+		.replace(/```json/g, "")
+		.replace(/```/g, "")
+		.trim();
 	if (!cleaned) return null;
 
 	const direct = tryParseObject(cleaned);
@@ -39,35 +48,12 @@ const parseJson = (text: string) => {
 	return null;
 };
 
-const stepIngredientSchema = z.object({
-	name: z.string(),
-	amount: z.string(),
-});
-
-const instructionSchema = z.object({
-	text: z.string(),
-	ingredients: z.array(stepIngredientSchema),
-});
-
-const recipeExtractSchema = z.object({
-	title: z.string(),
-	description: z.string(),
-	ingredients: z.array(z.string()),
-	originalIngredients: z.array(z.string()),
-	originalInstructions: z.array(instructionSchema),
-	baseServingsCount: z.number(),
-	instructions: z.array(instructionSchema),
-	time: z.string().optional(),
-	servings: z.string(),
-	recipeType: z.enum(["food", "baking"]),
-});
-
 const recipeExtractJsonSchema = z.toJSONSchema(recipeExtractSchema);
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 
 const METRIC_MEASUREMENT_RULES = [
 	"Weight: Use grams (g) or kilograms (kg).",
-	"Volume: Use deciliters (dl), milliliters (ml), or liters (l), tsp or tbsp where it makes sense.",
+	"Volume: Use deciliters (dl), milliliters (ml), or liters (l), teaspoons (tsp/tsk) or tablespoons (tbsp/msk) where it makes sense.",
 	"Temperature: Use Celsius (°C).",
 ];
 
@@ -78,7 +64,7 @@ const IMPERIAL_MEASUREMENT_RULES = [
 ];
 
 const STEP_INGREDIENT_SCHEMA_TEXT = JSON.stringify(
-	z.toJSONSchema(stepIngredientSchema),
+	z.toJSONSchema(ingredientSchema),
 	null,
 	2,
 );
@@ -87,7 +73,8 @@ const STEP_INGREDIENT_RULES = [
 	"Use this JSON schema for each step ingredient object:",
 	STEP_INGREDIENT_SCHEMA_TEXT,
 	"name: The ingredient name only (no quantity/unit) in singular form. It should match the ingredient name in the top-level ingredients array.",
-	"amount: The numeric amount and unit used in that step. There may be ingredients without specific amounts in steps, in which case this can be an empty string.",
+	"amount: The numeric quantity only (e.g. 2, 1.5, 1/2). Empty string if no specific amount in that step.",
+	"unit: The unit of measurement. Empty string if no unit.",
 	'Use the same converted unit system as the top-level "ingredients".',
 ];
 
@@ -210,8 +197,8 @@ const getUrlContextSummary = (response: unknown, targetUrl: string) => {
 		}>;
 	};
 
-	const allMetadata = (payload.candidates || []).flatMap((candidate) =>
-		candidate.urlContextMetadata?.urlMetadata || [],
+	const allMetadata = (payload.candidates || []).flatMap(
+		(candidate) => candidate.urlContextMetadata?.urlMetadata || [],
 	);
 
 	const hasSuccessForTarget = allMetadata.some(
@@ -278,22 +265,23 @@ export const Route = createFileRoute("/api/extract-recipe")({
 
 					const parsedGrounded = parseJson(groundedText);
 					if (parsedGrounded) {
-						const validatedGrounded = recipeExtractSchema.safeParse(parsedGrounded);
+						const validatedGrounded =
+							recipeExtractSchema.safeParse(parsedGrounded);
 						if (validatedGrounded.success) {
-							return Response.json(
-								{
-									...validatedGrounded.data,
-									sourceUrl: url,
-									createdAt: Date.now(),
-									language,
-									measureSystem: targetSystem,
-								} as Partial<Recipe>,
-							);
+							return Response.json({
+								...validatedGrounded.data,
+								sourceUrl: url,
+								createdAt: Date.now(),
+								language,
+								measureSystem: targetSystem,
+							} as Partial<Recipe>);
 						}
 					}
 					return pageNotSupportedResponse();
-				} catch (error: any) {
-					return extractionFailedResponse(error.message);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : "Unknown error";
+					return extractionFailedResponse(message);
 				}
 			},
 		},

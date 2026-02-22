@@ -1,38 +1,45 @@
-export interface Ingredient {
-	item: string;
-	amount: string;
-	unit: string;
-	originalString?: string;
-}
+import { z } from "zod";
 
-export interface StepIngredient {
-	name: string;
-	amount: string;
-}
+export const ingredientSchema = z.object({
+	name: z.string(),
+	amount: z.string(),
+	unit: z.string(),
+});
+export type Ingredient = z.infer<typeof ingredientSchema>;
 
-export interface Instruction {
-	text: string;
-	ingredients: StepIngredient[]; // specific ingredients with measurements for this step
-}
+export const instructionSchema = z.object({
+	text: z.string(),
+	ingredients: z.array(ingredientSchema),
+});
+export type Instruction = z.infer<typeof instructionSchema>;
 
-export type MeasureSystem = "metric" | "imperial";
+export const measureSystemSchema = z.enum(["metric", "imperial"]);
+export type MeasureSystem = z.infer<typeof measureSystemSchema>;
 
-export interface Recipe {
-	id: string;
-	title: string;
-	description: string;
-	ingredients: string[];
-	instructions: Instruction[];
-	originalInstructions?: Instruction[];
-	originalIngredients?: string[];
-	time?: string;
-	servings?: string;
-	baseServingsCount: number;
-	sourceUrl: string;
-	createdAt: number;
-	language: "en" | "sv";
-	measureSystem: MeasureSystem;
-	recipeType?: "food" | "baking";
-}
+export const languageSchema = z.enum(["en", "sv"]);
+export type Language = z.infer<typeof languageSchema>;
 
-export type Language = "en" | "sv";
+export const recipeTypeSchema = z.enum(["food", "baking"]);
+
+export const recipeExtractSchema = z.object({
+	title: z.string(),
+	description: z.string(),
+	ingredients: z.array(ingredientSchema),
+	originalIngredients: z.array(ingredientSchema),
+	originalInstructions: z.array(instructionSchema),
+	baseServingsCount: z.number(),
+	instructions: z.array(instructionSchema),
+	time: z.string().optional(),
+	servings: z.string(),
+	recipeType: recipeTypeSchema,
+});
+export type RecipeExtract = z.infer<typeof recipeExtractSchema>;
+
+export const recipeSchema = recipeExtractSchema.extend({
+	id: z.string(),
+	sourceUrl: z.string(),
+	createdAt: z.number(),
+	language: languageSchema,
+	measureSystem: measureSystemSchema,
+});
+export type Recipe = z.infer<typeof recipeSchema>;

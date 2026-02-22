@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
-import type { Recipe, StepIngredient } from "../types.ts";
+import type { Ingredient, Recipe } from "../types.ts";
 import { formatDuration } from "../utils/formatDuration.ts";
 import type { Translation } from "../utils/i18n.ts";
 import { getRecipeArtworkDataUri } from "../utils/recipeArtwork.ts";
 import {
+	findMatchingTopIngredient,
 	resolveStepIngredient,
-	splitIngredientAmountAndName,
 } from "../utils/stepIngredients.ts";
 
 interface RecipeDetailProps {
@@ -52,9 +52,10 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 
 	const scaleMultiplier = multiplier / baseMultiplier;
 
-	const scaleString = (str: string) => {
-		if (scaleMultiplier === 1) return str;
-		return str.replace(
+	/** Scale only numeric amounts (skip temps/times). Used for ingredient amount + unit display. */
+	const scaleAmountString = (amountStr: string) => {
+		if (scaleMultiplier === 1) return amountStr;
+		return amountStr.replace(
 			/(\d+\s+\d+[/]\d+)|(\d+[/]\d+)|(\d+([.,]\d+)?)/g,
 			(match, mixed, fraction, _decimal, _p4, offset, fullString) => {
 				const strToSearch = typeof fullString === "string" ? fullString : "";
@@ -87,6 +88,12 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 		);
 	};
 
+	/** Format ingredient for display: amount (scaled) + unit + name. */
+	const formatIngredientLine = (ing: Ingredient, scale = true) => {
+		const amount = scale ? scaleAmountString(ing.amount) : ing.amount;
+		return [amount, ing.unit, ing.name].filter(Boolean).join(" ").trim();
+	};
+
 	const currentData = useMemo(() => {
 		return {
 			ingredients: recipe.ingredients,
@@ -95,20 +102,16 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 	}, [recipe.ingredients, recipe.instructions]);
 
 	const findIngredientIndex = (ingredientName: string): number => {
-		const clean = ingredientName.trim().toLowerCase();
-		if (!clean) return -1;
-
-		return currentData.ingredients.findIndex((masterIng) => {
-			const parsedMaster = splitIngredientAmountAndName(masterIng);
-			const masterName = (parsedMaster.name || masterIng).toLowerCase();
-			return masterName.includes(clean) || clean.includes(masterName);
-		});
+		const match = findMatchingTopIngredient(
+			ingredientName,
+			currentData.ingredients,
+		);
+		return match ? currentData.ingredients.indexOf(match) : -1;
 	};
 
-	const formatStepIngredient = (ingredient: StepIngredient): string => {
+	const formatStepIngredient = (ingredient: Ingredient): string => {
 		const resolved = resolveStepIngredient(ingredient, currentData.ingredients);
-		const amount = resolved.amount ? scaleString(resolved.amount) : "";
-		return [amount, resolved.name].filter(Boolean).join(" ");
+		return formatIngredientLine(resolved, true);
 	};
 
 	const toggleMasterIngredient = (index: number) => {
@@ -119,9 +122,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 		setCheckedIngredients(next);
 
 		const masterIng = currentData.ingredients[index];
-		const masterName =
-			splitIngredientAmountAndName(masterIng).name.toLowerCase() ||
-			masterIng.toLowerCase();
+		const masterName = masterIng.name.toLowerCase();
 		const nextStepChecked = { ...stepCheckedIngredients };
 		const nextCompletedSteps = new Set(completedSteps);
 
@@ -382,7 +383,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 											)}
 										</div>
 										<span className="text-sm font-medium flex-grow">
-											{showOriginal ? ing : scaleString(ing)}
+											{formatIngredientLine(ing, !showOriginal)}
 										</span>
 									</li>
 								))}
