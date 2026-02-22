@@ -132,6 +132,7 @@ export const normalizeInstruction = (
 	}
 
 	const value = rawInstruction as {
+		title?: unknown;
 		text?: unknown;
 		ingredients?: unknown;
 	};
@@ -144,6 +145,10 @@ export const normalizeInstruction = (
 		.filter((ing): ing is Ingredient => !!ing);
 
 	return {
+		title:
+			typeof value.title === "string" && value.title.trim()
+				? value.title.trim()
+				: undefined,
 		text: typeof value.text === "string" ? value.text : "",
 		ingredients,
 	};

@@ -425,92 +425,106 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 								{t.instructions}
 							</h3>
 							<div className="space-y-6">
-								{currentData.instructions.map((step, idx) => (
-									<div
-										key={idx}
-										className={`rounded-2xl border transition-all overflow-hidden ${completedSteps.has(idx) ? "border-green-200 bg-green-50/10" : "border-cream-200 hover:border-cream-300"}`}
-									>
-										<div className="flex gap-4 p-5 items-start">
-											<button
-												type="button"
-												onClick={() => toggleStep(idx)}
-												className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-transform hover:scale-110 ${completedSteps.has(idx) ? "bg-green-500 text-white" : "bg-accent-orange text-white"}`}
+								{currentData.instructions.map((step, idx) => {
+									const previousTitle = currentData.instructions[idx - 1]?.title;
+									const showStepSectionTitle =
+										typeof step.title === "string" &&
+										step.title.length > 0 &&
+										step.title !== previousTitle;
+
+									return (
+										<div key={idx}>
+											{showStepSectionTitle ? (
+												<h4 className="text-sm font-bold text-cream-700 uppercase tracking-widest mb-3">
+													{step.title}
+												</h4>
+											) : null}
+											<div
+												className={`rounded-2xl border transition-all overflow-hidden ${completedSteps.has(idx) ? "border-green-200 bg-green-50/10" : "border-cream-200 hover:border-cream-300"}`}
 											>
-												{completedSteps.has(idx) ? (
-													<Check size={16} />
-												) : (
-													idx + 1
-												)}
-											</button>
-											<div className="flex-grow">
-												<p
-													className={`font-medium leading-relaxed transition-all ${completedSteps.has(idx) ? "text-gray-400" : "text-cream-900"}`}
-												>
-													{step.text}
-												</p>
-												{showOriginal &&
-													recipe.originalInstructions &&
-													recipe.originalInstructions[idx] && (
-														<p className="text-sm text-gray-500 italic mt-2">
-															{recipe.originalInstructions[idx].text}
-														</p>
-													)}
-												{step.ingredients.length > 0 && (
+												<div className="flex gap-4 p-5 items-start">
 													<button
 														type="button"
-														onClick={() => toggleExpandIngredients(idx)}
-														className="mt-4 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-accent-orange hover:text-orange-600 transition-colors"
+														onClick={() => toggleStep(idx)}
+														className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-transform hover:scale-110 ${completedSteps.has(idx) ? "bg-green-500 text-white" : "bg-accent-orange text-white"}`}
 													>
-														{expandedIngredients.has(idx)
-															? t.hideIngredients
-															: `${t.checkIngredients} (${step.ingredients.length})`}
-														{expandedIngredients.has(idx) ? (
-															<ChevronUp size={14} />
+														{completedSteps.has(idx) ? (
+															<Check size={16} />
 														) : (
-															<ChevronDown size={14} />
+															idx + 1
 														)}
 													</button>
-												)}
-											</div>
-										</div>
-										{expandedIngredients.has(idx) &&
-											step.ingredients.length > 0 && (
-												<div className="px-5 pb-6 pt-0 border-t border-cream-50 bg-cream-50/30 animate-in slide-in-from-top-2">
-													<div className="pl-12 mt-4 flex flex-wrap gap-2">
-														{step.ingredients.map((ing, iIdx) => (
-															<div
-																key={iIdx}
-																className="flex items-center gap-1"
+													<div className="flex-grow">
+														<p
+															className={`font-medium leading-relaxed transition-all ${completedSteps.has(idx) ? "text-gray-400" : "text-cream-900"}`}
+														>
+															{step.text}
+														</p>
+														{showOriginal &&
+															recipe.originalInstructions &&
+															recipe.originalInstructions[idx] && (
+																<p className="text-sm text-gray-500 italic mt-2">
+																	{recipe.originalInstructions[idx].text}
+																</p>
+															)}
+														{step.ingredients.length > 0 && (
+															<button
+																type="button"
+																onClick={() => toggleExpandIngredients(idx)}
+																className="mt-4 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-accent-orange hover:text-orange-600 transition-colors"
 															>
-																<button
-																	type="button"
-																	onClick={(e) =>
-																		toggleStepIngredient(
-																			idx,
-																			iIdx,
-																			resolveStepIngredient(
-																				ing,
-																				currentData.flatIngredients,
-																			).name,
-																			e,
-																		)
-																	}
-																	className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${stepCheckedIngredients[idx]?.has(iIdx) ? "bg-green-100 border-green-200 text-green-700 line-through" : "bg-white border-cream-200 shadow-sm hover:border-accent-orange"}`}
-																>
-																	{stepCheckedIngredients[idx]?.has(iIdx) ? (
-																		<CheckCircle size={12} />
-																	) : (
-																		<Circle size={12} />
-																	)}
-																	{formatStepIngredient(ing)}
-																</button>
-															</div>
-														))}
+																{expandedIngredients.has(idx)
+																	? t.hideIngredients
+																	: `${t.checkIngredients} (${step.ingredients.length})`}
+																{expandedIngredients.has(idx) ? (
+																	<ChevronUp size={14} />
+																) : (
+																	<ChevronDown size={14} />
+																)}
+															</button>
+														)}
 													</div>
 												</div>
-											)}
-									</div>
-								))}
+												{expandedIngredients.has(idx) &&
+													step.ingredients.length > 0 && (
+														<div className="px-5 pb-6 pt-0 border-t border-cream-50 bg-cream-50/30 animate-in slide-in-from-top-2">
+															<div className="pl-12 mt-4 flex flex-wrap gap-2">
+																{step.ingredients.map((ing, iIdx) => (
+																	<div
+																		key={iIdx}
+																		className="flex items-center gap-1"
+																	>
+																		<button
+																			type="button"
+																			onClick={(e) =>
+																				toggleStepIngredient(
+																					idx,
+																					iIdx,
+																					resolveStepIngredient(
+																						ing,
+																						currentData.flatIngredients,
+																					).name,
+																					e,
+																				)
+																			}
+																			className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${stepCheckedIngredients[idx]?.has(iIdx) ? "bg-green-100 border-green-200 text-green-700 line-through" : "bg-white border-cream-200 shadow-sm hover:border-accent-orange"}`}
+																		>
+																			{stepCheckedIngredients[idx]?.has(iIdx) ? (
+																				<CheckCircle size={12} />
+																			) : (
+																				<Circle size={12} />
+																			)}
+																			{formatStepIngredient(ing)}
+																		</button>
+																	</div>
+																))}
+															</div>
+														</div>
+													)}
+											</div>
+										</div>
+									);
+								})}
 							</div>
 						</div>
 					</div>

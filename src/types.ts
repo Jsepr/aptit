@@ -14,6 +14,7 @@ export const ingredientSectionSchema = z.object({
 export type IngredientSection = z.infer<typeof ingredientSectionSchema>;
 
 export const instructionSchema = z.object({
+	title: z.string().optional(),
 	text: z.string(),
 	ingredients: z.array(ingredientSchema),
 });
