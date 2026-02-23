@@ -8,6 +8,7 @@ import {
 	recipeExtractSchema,
 	ingredientSchema,
 } from "../../types";
+import { getCachedRecipe, setCachedRecipe } from "../../utils/recipeCache";
 
 const parseJson = (text: string) => {
 	const tryParseObject = (candidate: string) => {
@@ -225,6 +226,15 @@ export const Route = createFileRoute("/api/extract-recipe")({
 				};
 				const { url, language, targetSystem } = data;
 
+				// Check cache first
+				const cached = getCachedRecipe(url, language, targetSystem);
+				if (cached) {
+					console.log(`[Cache] Hit for ${url}`);
+					return Response.json(cached.data);
+				}
+
+				console.log(`[Cache] Miss for ${url}`);
+
 				if (!process.env.GEMINI_API_KEY) {
 					return extractionFailedResponse("API Key is missing");
 				}
@@ -268,13 +278,18 @@ export const Route = createFileRoute("/api/extract-recipe")({
 						const validatedGrounded =
 							recipeExtractSchema.safeParse(parsedGrounded);
 						if (validatedGrounded.success) {
-							return Response.json({
+							const recipeData = {
 								...validatedGrounded.data,
 								sourceUrl: url,
 								createdAt: Date.now(),
 								language,
 								measureSystem: targetSystem,
-							} as Partial<Recipe>);
+							} as Partial<Recipe>;
+
+							// Cache the successful result
+							setCachedRecipe(url, language, targetSystem, recipeData);
+
+							return Response.json(recipeData);
 						}
 					}
 					return pageNotSupportedResponse();

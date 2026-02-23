@@ -2,10 +2,14 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import AddRecipe from "../components/AddRecipe.tsx";
 import { useAppState } from "../state/appState.tsx";
 
+type AddRecipeRouteSearch = {
+	url?: string;
+};
+
 export const Route = createFileRoute("/_app/add")({
 	component: AddRecipeRoute,
-	validateSearch: (search) => ({
-		url: (search.url as string) || undefined,
+	validateSearch: (search: Record<string, unknown>): AddRecipeRouteSearch => ({
+		url: (search.url as string) || '',
 	}),
 });
 
