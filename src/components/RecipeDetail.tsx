@@ -13,6 +13,7 @@ import {
 	Minus,
 	Plus,
 	Scale,
+	Share2,
 	Sparkles,
 	Trash2,
 	Users,
@@ -53,6 +54,7 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 		new Set([0]),
 	);
 	const [showOriginal, setShowOriginal] = useState(false);
+	const [showCopyConfirm, setShowCopyConfirm] = useState(false);
 
 	const scaleMultiplier = multiplier / baseMultiplier;
 
@@ -244,6 +246,30 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 		});
 	};
 
+	const handleShare = async () => {
+		if (!recipe.sourceUrl) return;
+		const shareUrl = `${window.location.origin}/add?url=${encodeURIComponent(recipe.sourceUrl)}`;
+		try {
+			await navigator.clipboard.writeText(shareUrl);
+			setShowCopyConfirm(true);
+			setTimeout(() => setShowCopyConfirm(false), 2000);
+		} catch {
+			// Fallback for browsers that don't support clipboard API
+			const textarea = document.createElement("textarea");
+			textarea.value = shareUrl;
+			document.body.appendChild(textarea);
+			textarea.select();
+			try {
+				document.execCommand("copy");
+				setShowCopyConfirm(true);
+				setTimeout(() => setShowCopyConfirm(false), 2000);
+			} catch {
+				console.error("Failed to copy URL");
+			}
+			document.body.removeChild(textarea);
+		}
+	};
+
 	const displayedSections = getIngredientSections(
 		showOriginal && recipe.originalIngredients?.length
 			? recipe.originalIngredients
@@ -259,13 +285,34 @@ const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onDelete, t }) => {
 				>
 					<ArrowLeft size={20} className="mr-2" /> {t.back}
 				</Link>
-				<button
-					type="button"
-					onClick={() => window.confirm(t.deleteConfirm) && onDelete(recipe.id)}
-					className="text-red-400 p-2 rounded-full hover:bg-red-50 transition-colors"
-				>
-					<Trash2 size={20} />
-				</button>
+				<div className="flex gap-2">
+					{recipe.sourceUrl && (
+						<div className="relative">
+							<button
+								type="button"
+								onClick={handleShare}
+								disabled={!recipe.sourceUrl}
+								className="text-blue-400 p-2 rounded-full hover:bg-blue-50 transition-colors disabled:opacity-50"
+								title={t.share || "Share"}
+							>
+								<Share2 size={20} />
+							</button>
+							{showCopyConfirm && (
+								<div className="absolute right-0 top-12 bg-cream-900 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap flex items-center gap-2 shadow-lg z-10">
+									<Check size={16} />
+									{t.copied || "Copied!"}
+								</div>
+							)}
+						</div>
+					)}
+					<button
+						type="button"
+						onClick={() => window.confirm(t.deleteConfirm) && onDelete(recipe.id)}
+						className="text-red-400 p-2 rounded-full hover:bg-red-50 transition-colors"
+					>
+						<Trash2 size={20} />
+					</button>
+				</div>
 			</div>
 
 			<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-cream-200">

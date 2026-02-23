@@ -7,7 +7,7 @@ import {
 	Sparkles,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { extractRecipe } from "../services/geminiService.ts";
 import {
@@ -24,6 +24,7 @@ interface AddRecipeProps {
 	t: Translation;
 	language: Language;
 	measureSystem: MeasureSystem;
+	initialUrl?: string;
 }
 
 const AddRecipe: React.FC<AddRecipeProps> = ({
@@ -31,11 +32,26 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 	t,
 	language,
 	measureSystem,
+	initialUrl,
 }) => {
-	const [url, setUrl] = useState("");
+	const [url, setUrl] = useState(initialUrl || "");
 	const [isLoading, setIsLoading] = useState(false);
 	const [statusText, setStatusText] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const formRef = useRef<HTMLFormElement>(null);
+
+	// Auto-submit if initialUrl is provided
+	useEffect(() => {
+		if (initialUrl && formRef.current) {
+			setUrl(initialUrl);
+			// Use setTimeout to ensure state is updated before form submission
+			setTimeout(() => {
+				formRef.current?.dispatchEvent(
+					new Event("submit", { bubbles: true, cancelable: true }),
+				);
+			}, 0);
+		}
+	}, [initialUrl]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -121,7 +137,7 @@ const AddRecipe: React.FC<AddRecipeProps> = ({
 				</h2>
 				<p className="text-gray-600 mb-8">{t.pasteLink}</p>
 
-				<form onSubmit={handleSubmit} className="space-y-6">
+				<form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
 					<div className="relative">
 						<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
 							<LinkIcon size={20} className="text-gray-400" />

@@ -51,6 +51,8 @@ const en = {
 		saveSettings: "Save Settings",
 		continueLabel: "Continue",
 		language: "Language",
+		share: "Share",
+		copied: "Copied!",
 	};
 
 export type Translation = typeof en;
@@ -108,5 +110,7 @@ export const translations: Record<Language, Translation> = {
 		saveSettings: "Spara inställningar",
 		continueLabel: "Fortsätt",
 		language: "Språk",
+		share: "Dela",
+		copied: "Kopierat!",
 	},
 };
